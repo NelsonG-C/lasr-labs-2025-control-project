@@ -47,8 +47,8 @@ honest_df = pd.read_csv(
 )
 results = analysis.analyse_safety_usefulness(
     honeypot_df=honeypot_df,
-    attack_df=attack_df,
-    honest_df=honest_df,
+    attack_monitor_malign=attack_df,
+    honest_monitor_benign=honest_df,
 )
 
 plt.show(results.safety_usefulness_plot)
