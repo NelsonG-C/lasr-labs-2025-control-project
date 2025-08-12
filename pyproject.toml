@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "Nelson Gardner-Challis", email = "41055112+NelsonG-C@users.noreply.github.com" }
 ]
-requires-python = ">=3.11.7"
+requires-python = ">=3.13"
 dependencies = [
     "control-arena>=2.1.2",
     "ipython>=9.4.0",

@@ -67,9 +67,6 @@ untrusted_monitor_builder = untrusted_policy(
     honest=honest_monitor_builder, attack=attack_monitor_builder
 )
 
-always_attack_monitor = untrusted_policy(
-    honest=honest_monitor_builder, attack=attack_monitor_builder
-)
 
 # Build our monitoring protocols
 
@@ -80,7 +77,7 @@ monitored_protocol = tm_protocol(
 
 honest_gen_with_attack_monitor_protocol = tm_protocol(
     policy_builder=untrusted_policy_builder,
-    monitor_builder=always_attack_monitor,
+    monitor_builder=attack_monitor_builder,
 )
 
 honeypot_protocol = tm_protocol(
