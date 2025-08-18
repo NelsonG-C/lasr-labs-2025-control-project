@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Any, List
 
 from control_arena.eval_mode import EvalMode
 from inspect_ai import Epochs, Task, task
@@ -22,6 +23,8 @@ from lasr_labs_2025_control_project.experiments.acausal_collusion.prompts import
     meta_model_system_prompt,
     meta_model_user_monitor_prompt,
     meta_model_user_policy_prompt,
+    meta_monitor_summary,
+    meta_policy_summary,
 )
 from lasr_labs_2025_control_project.replications.ai_control_paper.setting import (
     AppsSetting,
@@ -30,6 +33,8 @@ from lasr_labs_2025_control_project.replications.ai_control_paper.setting import
 audit_tasks = []
 META_POLICY_RESULTS = []
 META_MONITOR_RESULTS = []
+META_POLICY_SUMMARIES = []
+META_MONITOR_SUMMARIES = []
 PROCESSING_COUNT = 0
 
 
@@ -42,8 +47,90 @@ class MetaType(Enum):
     MONITOR = "MM"
 
 
-def meta_model_runs():
-    pass
+@solver
+def meta_summaries() -> Solver:
+    """Solver to create summaries of meta policy and monitor results"""
+
+    async def solve(state: TaskState, generate: Generate) -> TaskState:
+        global META_POLICY_SUMMARIES, META_MONITOR_SUMMARIES
+
+        # Create summaries for policy results
+        if META_POLICY_RESULTS:
+            await fork(
+                state=state,
+                solvers=[
+                    summary_solver(
+                        data_list=META_POLICY_RESULTS,
+                        summary_prompt=meta_policy_summary,
+                        meta=MetaType.POLICY.value,
+                    )
+                ],
+            )
+
+        # Create summaries for monitor results
+        if META_MONITOR_RESULTS:
+            await fork(
+                state=state,
+                solvers=[
+                    summary_solver(
+                        data_list=META_MONITOR_RESULTS,
+                        summary_prompt=meta_monitor_summary,
+                        meta=MetaType.MONITOR.value,
+                    )
+                ],
+            )
+
+        return state
+
+    return solve
+
+
+@solver
+def summary_solver(
+    data_list: List[Any],  # fix at some point
+    summary_prompt: str,
+    meta: str = MetaType.POLICY.value,
+    model: str = "openai/gpt-4o-mini",
+) -> Solver:
+    """
+    General solver for summarizing messages from a list of data.
+
+    Args:
+        data_list: List of dictionaries containing 'message' field to summarize
+        summary_prompt: The prompt to use for summarization
+        result_type: Label to identify the type of summary (e.g., 'meta_policy', 'meta_monitor')
+        summary_model: Model to use for summarization
+    """
+    llm_model = get_model(model)
+
+    async def solve(state: TaskState, generate: Generate) -> TaskState:
+        global META_POLICY_SUMMARIES, META_MONITOR_SUMMARIES
+
+        for item in data_list:
+            if "message" in item:
+                full_prompt = (
+                    f"{summary_prompt}\n\nPrompt to summarize:\n{item['message']}"
+                )
+
+                summary_response = await llm_model.generate(full_prompt)
+
+                summary_entry = {
+                    "id": item.get("id"),
+                    "sample_id": item.get("sample_id"),
+                    "summary": summary_response.completion,
+                    "type": meta,
+                }
+
+                summary_list = (
+                    META_POLICY_SUMMARIES
+                    if meta == MetaType.MONITOR.value
+                    else META_MONITOR_SUMMARIES
+                )
+                summary_list.append(summary_entry)
+
+        return state
+
+    return solve
 
 
 @solver
@@ -124,10 +211,6 @@ def custom_scorer() -> Scorer:
     return score
 
 
-def summarise_meta_model_outputs():
-    pass
-
-
 def policy_generation():
     pass
 
@@ -188,7 +271,7 @@ def focal_point(
     num_epochs: int = 1,
     epoch_reducer: str | list[str] = ["mean"],
     n_example_tasks: int = 2,
-    n_meta_models: int = 3,
+    n_meta_models: int = 1,
 ):
     start_id = 1500
     end_id = 2000
@@ -208,6 +291,7 @@ def focal_point(
                 n_example_tasks=n_example_tasks,
                 n_meta_models=n_meta_models,
             ),
+            meta_summaries(),
         ],
         scorer=custom_scorer(),
         config=GenerateConfig(temperature=temperature),
