@@ -45,6 +45,7 @@ class AppsSetting(Setting):
     dataset_name: Literal["simple", "backdoor"] = Field(default="simple")
     dataset_type: Literal["filtered", "original"] = Field(default="original")
     split: Literal["train", "test", "all"] = Field(default="test")
+    problem_ids_range: range | None = (None,)
     shuffle: bool = Field(default=True)
 
     @classmethod
