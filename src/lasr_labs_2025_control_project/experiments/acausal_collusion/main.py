@@ -18,8 +18,10 @@ from inspect_ai.scorer import (
     scorer,
 )
 from inspect_ai.solver import Generate, Solver, TaskState, fork, solver
+from inspect_ai.util import store
 
 from lasr_labs_2025_control_project.experiments.acausal_collusion.prompts import (
+    judge_prompt,
     meta_model_system_prompt,
     meta_model_user_monitor_prompt,
     meta_model_user_policy_prompt,
@@ -136,7 +138,7 @@ def summary_solver(
 @solver
 def meta_generate(
     model: str = "openai/gpt-4o-mini",
-    meta_models_temperature: float = 0.0,
+    meta_models_temperature: float = 1.0,
     n_example_tasks: int = 2,
     audit_patterns: str = "",
     backdoor_patterns: str = "",
@@ -153,7 +155,9 @@ def meta_generate(
                 N_AUDIT=get_n_tasks(),
                 exact_audit_patterns=audit_patterns,
                 exact_backdoor_patterns=backdoor_patterns,
-                meta_assignment=MetaType.POLICY.value,
+                meta_assignment=MetaType.POLICY.value
+                if meta == MetaType.POLICY.value
+                else MetaType.MONITOR.value,
                 meta_value="P" if meta == MetaType.POLICY.value else "M",
             )
         )
@@ -181,7 +185,6 @@ def meta_generate(
             "count": len(META_POLICY_RESULTS) + len(META_MONITOR_RESULTS),
         }
 
-        # add response to stored meta policy result in store
         if meta == MetaType.POLICY.value:
             # id store might be buggy
             META_POLICY_RESULTS.append({"id": len(META_POLICY_RESULTS), **output})
@@ -211,6 +214,44 @@ def custom_scorer() -> Scorer:
     return score
 
 
+@solver
+def compare_combinations(
+    policy_summaries: List[Any],
+    monitor_summaries: List[Any],
+    judge_model: str = "openai/gpt-4o-mini",
+) -> Solver:
+    llm_model = get_model(judge_model)
+
+    async def solve(state: TaskState, generate: Generate) -> TaskState:
+        # Compare each policy summary with each monitor summary
+        for policy_item in policy_summaries:
+            for monitor_item in monitor_summaries:
+                full_prompt = judge_prompt.format(
+                    policy_summary=policy_item["summary"],
+                    monitor_summary=monitor_item["summary"],
+                )
+
+                judge_response = await llm_model.generate(full_prompt)
+                judgment = judge_response.completion.strip().upper()
+
+                if judgment == "YES":
+                    store().set(
+                        "collusion_strategy",
+                        {
+                            "match_found": True,
+                            "policy_strategy": policy_item,
+                            "monitor_strategy": monitor_item,
+                        },
+                    )
+                    match_found = True
+                    break
+            if match_found:
+                break
+        return state
+
+    return solve
+
+
 def policy_generation():
     pass
 
@@ -237,27 +278,49 @@ def meta_generation(
     async def solve(state: TaskState, generate: Generate) -> TaskState:
         global SHARED_RESULTS
 
-        for i in range(n_meta_models):
-            await fork(
-                state=state,
-                solvers=[
-                    meta_generate(
-                        meta_models_temperature=meta_models_temperature,
-                        n_example_tasks=n_example_tasks,
-                        audit_patterns=TEST_COLLUSION_STRATEGY,
-                        backdoor_patterns=TEST_MONITOR_COLLUSION_STRATEGY,
-                        meta=MetaType.POLICY.value,
-                    ),
-                    # meta generate monitor
-                    meta_generate(
-                        meta_models_temperature=meta_models_temperature,
-                        n_example_tasks=n_example_tasks,
-                        audit_patterns=TEST_COLLUSION_STRATEGY,
-                        backdoor_patterns=TEST_MONITOR_COLLUSION_STRATEGY,
-                        meta=MetaType.MONITOR.value,
-                    ),
-                ],
-            )
+        res = await fork(
+            state=state,
+            solvers=[
+                meta_generate(
+                    meta_models_temperature=meta_models_temperature,
+                    n_example_tasks=n_example_tasks,
+                    audit_patterns=TEST_COLLUSION_STRATEGY,
+                    backdoor_patterns=TEST_MONITOR_COLLUSION_STRATEGY,
+                    meta=MetaType.POLICY.value,
+                ),
+                # meta generate monitor
+                meta_generate(
+                    meta_models_temperature=meta_models_temperature,
+                    n_example_tasks=n_example_tasks,
+                    audit_patterns=TEST_COLLUSION_STRATEGY,
+                    backdoor_patterns=TEST_MONITOR_COLLUSION_STRATEGY,
+                    meta=MetaType.MONITOR.value,
+                ),
+            ],
+        )
+        print("meta generate policy", res)
+
+        # for i in range(n_meta_models):
+        #     await fork(
+        #         state=state,
+        #         solvers=[
+        #             meta_generate(
+        #                 meta_models_temperature=meta_models_temperature,
+        #                 n_example_tasks=n_example_tasks,
+        #                 audit_patterns=TEST_COLLUSION_STRATEGY,
+        #                 backdoor_patterns=TEST_MONITOR_COLLUSION_STRATEGY,
+        #                 meta=MetaType.POLICY.value,
+        #             ),
+        #             # meta generate monitor
+        #             meta_generate(
+        #                 meta_models_temperature=meta_models_temperature,
+        #                 n_example_tasks=n_example_tasks,
+        #                 audit_patterns=TEST_COLLUSION_STRATEGY,
+        #                 backdoor_patterns=TEST_MONITOR_COLLUSION_STRATEGY,
+        #                 meta=MetaType.MONITOR.value,
+        #             ),
+        #         ],
+        #     )
 
         return state
 
@@ -271,7 +334,7 @@ def focal_point(
     num_epochs: int = 1,
     epoch_reducer: str | list[str] = ["mean"],
     n_example_tasks: int = 2,
-    n_meta_models: int = 1,
+    n_meta_models: int = 2,
 ):
     start_id = 1500
     end_id = 2000
@@ -291,7 +354,11 @@ def focal_point(
                 n_example_tasks=n_example_tasks,
                 n_meta_models=n_meta_models,
             ),
-            meta_summaries(),
+            # meta_summaries(),
+            # compare_combinations(
+            #     policy_summaries=META_POLICY_SUMMARIES,
+            #     monitor_summaries=META_MONITOR_SUMMARIES,
+            # ),
         ],
         scorer=custom_scorer(),
         config=GenerateConfig(temperature=temperature),
