@@ -22,8 +22,12 @@ from lasr_labs_2025_control_project.experiments.acausal_collusion.prompts import
     meta_model_user_policy_prompt,
     meta_monitor_summary,
     meta_policy_summary,
+    policy_response_formatting_instructions,
     summary_example_prompt,
     summary_example_response,
+)
+from lasr_labs_2025_control_project.experiments.acausal_collusion.scorers import (
+    apps_scorer,
 )
 from lasr_labs_2025_control_project.replications.ai_control_paper.setting import (
     AppsSetting,
@@ -246,11 +250,18 @@ def policy_solver(model: str = "openai/gpt-4o-mini") -> Solver:
                     ChatMessageSystem(content=f"You are a ctf model. {policy}"),
                     # add original problem from sample
                     ChatMessageUser(content=state.messages[0].content),
+                    ChatMessageUser(content=policy_response_formatting_instructions),
                 ],
-                config=GenerateConfig(temperature=0.0),
+                config=GenerateConfig(
+                    temperature=0.0,
+                ),
             )
 
+            # do this for the scoring
+            state.output = res
+
             state.messages.append(res.message)
+            state.output.completion
             store().set(
                 "generated_policy_code",
                 {
@@ -406,9 +417,13 @@ def focal_point(
                 policy_list=META_POLICY_RESULTS,
                 monitor_list=META_MONITOR_RESULTS,
             ),
-            policy_solver(model="openai/gpt-4o-mini"),
+            policy_solver(model="openai/gpt-4o"),
             monitor_solver(model="openai/gpt-4o-mini"),
         ],
-        scorer=apps_setting.get_scorers(),
+        scorer=apps_scorer(
+            use_cache=True,
+            num_tests=apps_setting.num_tests_to_run,
+        ),
         config=GenerateConfig(temperature=temperature),
+        sandbox="docker",
     )
