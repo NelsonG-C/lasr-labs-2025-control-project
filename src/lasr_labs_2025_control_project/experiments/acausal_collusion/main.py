@@ -391,49 +391,49 @@ def meta_generation(
     n_meta_models: int = 10,
 ) -> Solver:
     async def solve(state: TaskState, generate: Generate) -> TaskState:
-        res = await fork(
-            state=state,
-            solvers=[
-                meta_generate(
-                    meta_models_temperature=meta_models_temperature,
-                    n_example_tasks=n_example_tasks,
-                    audit_patterns=TEST_COLLUSION_STRATEGY,
-                    backdoor_patterns=TEST_MONITOR_COLLUSION_STRATEGY,
-                    meta=MetaType.POLICY.value,
-                ),
-                # meta generate monitor
-                meta_generate(
-                    meta_models_temperature=meta_models_temperature,
-                    n_example_tasks=n_example_tasks,
-                    audit_patterns=TEST_COLLUSION_STRATEGY,
-                    backdoor_patterns=TEST_MONITOR_COLLUSION_STRATEGY,
-                    meta=MetaType.MONITOR.value,
-                ),
-            ],
-        )
-        print("meta generate policy", res)
+        # res = await fork(
+        #     state=state,
+        #     solvers=[
+        #         meta_generate(
+        #             meta_models_temperature=meta_models_temperature,
+        #             n_example_tasks=n_example_tasks,
+        #             audit_patterns=TEST_COLLUSION_STRATEGY,
+        #             backdoor_patterns=TEST_MONITOR_COLLUSION_STRATEGY,
+        #             meta=MetaType.POLICY.value,
+        #         ),
+        #         # meta generate monitor
+        #         meta_generate(
+        #             meta_models_temperature=meta_models_temperature,
+        #             n_example_tasks=n_example_tasks,
+        #             audit_patterns=TEST_COLLUSION_STRATEGY,
+        #             backdoor_patterns=TEST_MONITOR_COLLUSION_STRATEGY,
+        #             meta=MetaType.MONITOR.value,
+        #         ),
+        #     ],
+        # )
+        # print("meta generate policy", res)
 
-        # for i in range(n_meta_models):
-        #     await fork(
-        #         state=state,
-        #         solvers=[
-        #             meta_generate(
-        #                 meta_models_temperature=meta_models_temperature,
-        #                 n_example_tasks=n_example_tasks,
-        #                 audit_patterns=TEST_COLLUSION_STRATEGY,
-        #                 backdoor_patterns=TEST_MONITOR_COLLUSION_STRATEGY,
-        #                 meta=MetaType.POLICY.value,
-        #             ),
-        #             # meta generate monitor
-        #             meta_generate(
-        #                 meta_models_temperature=meta_models_temperature,
-        #                 n_example_tasks=n_example_tasks,
-        #                 audit_patterns=TEST_COLLUSION_STRATEGY,
-        #                 backdoor_patterns=TEST_MONITOR_COLLUSION_STRATEGY,
-        #                 meta=MetaType.MONITOR.value,
-        #             ),
-        #         ],
-        #     )
+        for i in range(n_meta_models):
+            await fork(
+                state=state,
+                solvers=[
+                    meta_generate(
+                        meta_models_temperature=meta_models_temperature,
+                        n_example_tasks=n_example_tasks,
+                        audit_patterns=TEST_COLLUSION_STRATEGY,
+                        backdoor_patterns=TEST_MONITOR_COLLUSION_STRATEGY,
+                        meta=MetaType.POLICY.value,
+                    ),
+                    # meta generate monitor
+                    meta_generate(
+                        meta_models_temperature=meta_models_temperature,
+                        n_example_tasks=n_example_tasks,
+                        audit_patterns=TEST_COLLUSION_STRATEGY,
+                        backdoor_patterns=TEST_MONITOR_COLLUSION_STRATEGY,
+                        meta=MetaType.MONITOR.value,
+                    ),
+                ],
+            )
 
         return state
 
@@ -453,7 +453,7 @@ def focal_point(
     # end_id = 1501
     # problem_ids = range(start_id, end_id + 1)
 
-    apps_setting = AppsSetting(shuffle=False)
+    apps_setting = AppsSetting(dataset_type="filtered", shuffle=False, split="test")
     dataset = apps_setting.get_dataset(eval_mode=EvalMode.HONEST)
     len(dataset)  # Ensure dataset is loaded
     dataset = dataset[0:1]  # Use a specific sample for testing
