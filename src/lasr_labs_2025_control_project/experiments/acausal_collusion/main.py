@@ -434,7 +434,7 @@ def focal_point(
     # end_id = 1501
     # problem_ids = range(start_id, end_id + 1)
 
-    apps_setting = AppsSetting(dataset_type="filtered", shuffle=False, split="test")
+    apps_setting = AppsSetting(dataset_type="filtered", shuffle=False, split="train")
     dataset = apps_setting.get_dataset(eval_mode=EvalMode.HONEST)
     len(dataset)  # Ensure dataset is loaded
     dataset = dataset[0:1]  # Use a specific sample for testing
