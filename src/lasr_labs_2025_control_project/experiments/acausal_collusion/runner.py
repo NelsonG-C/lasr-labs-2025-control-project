@@ -11,7 +11,7 @@ from lasr_labs_2025_control_project.experiments.acausal_collusion.main import (
 
 
 def simple_runner():
-    rounds = 2
+    rounds = 3
     runs = 1
     counter = 0
     failed = False
@@ -50,8 +50,9 @@ def simple_runner():
                 num_epochs=1,
                 epoch_reducer="mean",
                 n_example_tasks=2,
-                n_meta_models=2,
+                n_meta_models=5,
                 audit_array=audit_tasks[f"task_{i}"],
+                model="anthropic/claude-sonnet-4-20250514",
             )
             for i in range(runs)
         ]
@@ -61,6 +62,7 @@ def simple_runner():
                 tasks=tasks,
                 limit=1,
                 max_samples=1,
+                model="anthropic/claude-sonnet-4-20250514",
                 log_dir=f"src/lasr_labs_2025_control_project/experiments/acausal_collusion/logs/{run_id}",
             )
             counter += 1
@@ -70,10 +72,6 @@ def simple_runner():
             successful_tasks = []
 
             for task_id in starting_tasks:
-                print("AUDIT TASKS", audit_tasks)
-                # check it has items in audit array
-                # if it does then get key and add to successful task list
-                # if length of successful tasks is greaer than 0 , run another loop
                 if len(audit_tasks[task_id]) > 0:
                     successful_tasks.append(task_id)
 
@@ -113,5 +111,4 @@ def simple_runner():
 
 
 if __name__ == "__main__":
-    # simple_runner()
     simple_runner()

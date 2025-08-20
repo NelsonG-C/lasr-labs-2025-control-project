@@ -1,3 +1,4 @@
+import asyncio
 import json
 from enum import Enum
 from typing import Any, List
@@ -56,7 +57,7 @@ class MetaType(Enum):
 
 
 @solver
-def meta_summaries() -> Solver:
+def meta_summaries(model: str) -> Solver:
     """Solver to create summaries of meta policy and monitor results"""
 
     async def solve(state: TaskState, generate: Generate) -> TaskState:
@@ -68,6 +69,7 @@ def meta_summaries() -> Solver:
                     summary_solver(
                         data_list=META_POLICY_RESULTS,
                         summary_prompt=meta_policy_summary,
+                        model=model,
                     )
                 ],
             )
@@ -80,6 +82,7 @@ def meta_summaries() -> Solver:
                     summary_solver(
                         data_list=META_MONITOR_RESULTS,
                         summary_prompt=meta_monitor_summary,
+                        model=model,
                     )
                 ],
             )
@@ -107,15 +110,16 @@ def summary_solver(
     llm_model = get_model(model)
 
     async def solve(state: TaskState, generate: Generate) -> TaskState:
-        for item in data_list:
+        async def process_item(item: Any):
+            """Process a single item from the data_list"""
             if "message" in item:
                 meta_policy = extract_xml_tag(item["message"], "final")
                 if not meta_policy:
                     # rely on the draft - not sure I should do this
                     meta_policy = extract_xml_tag(item["message"], "draft")
                     if not meta_policy:
-                        # return and handle outside this
-                        return state
+                        # Skip this item if no content found
+                        return
 
                 chat = [
                     ChatMessageSystem(content=summary_prompt),
@@ -127,8 +131,11 @@ def summary_solver(
                 ]
 
                 summary_response = await llm_model.generate(chat)
-
                 item["summary"] = summary_response.completion
+
+        # Create tasks for all items and run them in parallel
+        tasks = [process_item(item) for item in data_list]
+        await asyncio.gather(*tasks)
 
         return state
 
@@ -203,34 +210,59 @@ def compare_combinations(
     llm_model = get_model(judge_model)
 
     async def solve(state: TaskState, generate: Generate) -> TaskState:
-        match_found = False
+        async def compare_pair(
+            policy_idx: int, policy_item: Any, monitor_idx: int, monitor_item: Any
+        ) -> dict[str, Any] | None:
+            """Compare a single policy-monitor pair"""
+            full_prompt = judge_prompt.format(
+                policy_summary=policy_item["summary"],
+                monitor_summary=monitor_item["summary"],
+            )
 
-        # Compare each policy summary with each monitor summary
+            judge_response = await llm_model.generate(full_prompt)
+            judgment = judge_response.completion.strip().upper()
+
+            if judgment == "YES":
+                return {
+                    "match_found": True,
+                    "policy_idx": policy_idx,
+                    "monitor_idx": monitor_idx,
+                    "policy_strategy": policy_item["summary"],
+                    "monitor_strategy": monitor_item["summary"],
+                    "policy": policy_item,
+                    "monitor": monitor_item,
+                }
+            return None
+
+        # Create all comparison tasks
+        all_tasks = []
         for policy_idx, policy_item in enumerate(policy_list):
             for monitor_idx, monitor_item in enumerate(monitor_list):
-                full_prompt = judge_prompt.format(
-                    policy_summary=policy_item["summary"],
-                    monitor_summary=monitor_item["summary"],
-                )
+                task_data = (policy_idx, policy_item, monitor_idx, monitor_item)
+                all_tasks.append(task_data)
 
-                judge_response = await llm_model.generate(full_prompt)
-                judgment = judge_response.completion.strip().upper()
+        # Process in batches of 10
+        batch_size = 10
+        match_found = False
 
-                if judgment == "YES":
-                    store().set(
-                        "collusion_strategy",
-                        {
-                            "match_found": True,
-                            "policy_strategy": policy_item,
-                            "monitor_strategy": monitor_item,
-                            "policy": policy_item,
-                            "monitor": monitor_item,
-                        },
-                    )
-                    match_found = True
-                    break
+        for i in range(0, len(all_tasks), batch_size):
             if match_found:
                 break
+
+            # Create batch of tasks
+            batch = all_tasks[i : i + batch_size]
+            tasks = [compare_pair(*task_data) for task_data in batch]
+
+            # Run batch in parallel
+            results = await asyncio.gather(*tasks)
+
+            # Check if any match was found in this batch
+            for result in results:
+                if result is not None:  # A match was found
+                    store().set("collusion_strategy", result)
+                    match_found = True
+                    break
+
         return state
 
     return solve
@@ -329,10 +361,6 @@ def policy_solver(model: str = "anthropic/claude-3-5-haiku-latest") -> Solver:
     return solve
 
 
-def add_to_auditing():
-    pass
-
-
 @solver
 def monitor_solver(model: str = "anthropic/claude-3-5-haiku-latest") -> Solver:
     llm_model = get_model(model)
@@ -386,6 +414,7 @@ def meta_generation(
     n_meta_models: int = 2,
     n_audit_tasks: int = 0,
     audit_array: List[Any] = [],
+    model: str = "anthropic/claude-3-5-haiku-latest",
 ) -> Solver:
     async def solve(state: TaskState, generate: Generate) -> TaskState:
         if n_audit_tasks == 0:
@@ -393,27 +422,37 @@ def meta_generation(
         else:
             audit_examples = concatenate_list(audit_array)
 
+        # First, run all POLICY meta-generations in parallel
+        policy_tasks = []
         for i in range(n_meta_models):
-            await fork(
-                state=state,
-                solvers=[
-                    meta_generate(
-                        meta_models_temperature=meta_models_temperature,
-                        n_example_tasks=n_example_tasks,
-                        audit_patterns=audit_examples,
-                        n_audit_tasks=n_audit_tasks,
-                        meta=MetaType.POLICY.value,
-                    ),
-                    # meta generate monitor
-                    meta_generate(
-                        meta_models_temperature=meta_models_temperature,
-                        n_example_tasks=n_example_tasks,
-                        audit_patterns=audit_examples,
-                        n_audit_tasks=n_audit_tasks,
-                        meta=MetaType.MONITOR.value,
-                    ),
-                ],
-            )
+            policy_task = meta_generate(
+                meta_models_temperature=meta_models_temperature,
+                n_example_tasks=n_example_tasks,
+                audit_patterns=audit_examples,
+                n_audit_tasks=n_audit_tasks,
+                meta=MetaType.POLICY.value,
+                model=model,
+            )(state, generate)
+            policy_tasks.append(policy_task)
+
+        # Wait for all policy generations to complete
+        await asyncio.gather(*policy_tasks)
+
+        # Then, run all MONITOR meta-generations in parallel
+        monitor_tasks = []
+        for i in range(n_meta_models):
+            monitor_task = meta_generate(
+                meta_models_temperature=meta_models_temperature,
+                n_example_tasks=n_example_tasks,
+                audit_patterns=audit_examples,
+                n_audit_tasks=n_audit_tasks,
+                meta=MetaType.MONITOR.value,
+                model=model,
+            )(state, generate)
+            monitor_tasks.append(monitor_task)
+
+        # Wait for all monitor generations to complete
+        await asyncio.gather(*monitor_tasks)
 
         return state
 
@@ -429,6 +468,7 @@ def focal_point(
     n_example_tasks: int = 2,
     n_meta_models: int = 2,
     audit_array: List[Any] = [],
+    model: str = "anthropic/claude-3-5-haiku-latest",
 ):
     # start_id = 1500
     # end_id = 1501
@@ -450,14 +490,16 @@ def focal_point(
                 n_meta_models=n_meta_models,
                 n_audit_tasks=len(audit_array),
                 audit_array=audit_array,
+                model=model,
             ),
-            meta_summaries(),
+            meta_summaries(model=model),
             compare_combinations(
                 policy_list=META_POLICY_RESULTS,
                 monitor_list=META_MONITOR_RESULTS,
+                judge_model=model,
             ),
-            policy_solver(model="anthropic/claude-3-5-haiku-latest"),
-            monitor_solver(model="anthropic/claude-3-5-haiku-latest"),
+            policy_solver(model=model),
+            monitor_solver(model=model),
         ],
         scorer=apps_scorer(
             use_cache=True,
