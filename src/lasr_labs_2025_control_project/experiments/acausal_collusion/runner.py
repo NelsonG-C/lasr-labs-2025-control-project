@@ -16,6 +16,7 @@ def simple_runner():
     counter = 0
     failed = False
     base_path = "src/lasr_labs_2025_control_project/experiments/acausal_collusion/logs"
+    model = "anthropic/claude-3-5-haiku-latest"
 
     # audit tasks
     audit_tasks = {}
@@ -52,7 +53,7 @@ def simple_runner():
                 n_example_tasks=2,
                 n_meta_models=5,
                 audit_array=audit_tasks[f"task_{i}"],
-                model="anthropic/claude-sonnet-4-20250514",
+                model=model,
             )
             for i in range(runs)
         ]
@@ -62,7 +63,7 @@ def simple_runner():
                 tasks=tasks,
                 limit=1,
                 max_samples=1,
-                model="anthropic/claude-sonnet-4-20250514",
+                model=model,
                 log_dir=f"src/lasr_labs_2025_control_project/experiments/acausal_collusion/logs/{run_id}",
             )
             counter += 1
