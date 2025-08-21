@@ -1,5 +1,5 @@
 import json
-from typing import Any, Callable, Dict, Literal
+from typing import Any, Callable, Dict, List, Literal
 
 from control_arena.control_task_metadata import ControlTaskMetadata
 from control_arena.eval_mode import EvalMode
@@ -45,7 +45,7 @@ class AppsSetting(Setting):
     dataset_name: Literal["simple", "backdoor"] = Field(default="simple")
     dataset_type: Literal["filtered", "original"] = Field(default="original")
     split: Literal["train", "test", "all"] = Field(default="test")
-    problem_ids_range: range | None = (None,)
+    problem_ids_range: List[int] | None = None
     shuffle: bool = Field(default=True)
 
     @classmethod
@@ -100,6 +100,20 @@ class AppsSetting(Setting):
                 if "problem_id" in backdoor  # type: ignore
             }
             dataset = dataset.filter(lambda x: x.id in problem_ids)
+
+        if self.problem_ids_range is not None and len(self.problem_ids_range) >= 2:
+            min_id, max_id = self.problem_ids_range[0], self.problem_ids_range[1]
+
+            dataset = dataset.filter(
+                lambda x: (
+                    x.id is not None
+                    and min_id is not None
+                    and max_id is not None
+                    and min_id
+                    <= (int(x.id) if isinstance(x.id, str) else x.id)
+                    <= max_id
+                )
+            )
 
         if self.dataset_type == "filtered":
             # Filtering the dataset to have standard format.
