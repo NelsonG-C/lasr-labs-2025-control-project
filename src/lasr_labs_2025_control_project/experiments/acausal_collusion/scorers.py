@@ -288,6 +288,25 @@ def custom_scorer(audit_array: List[Any]) -> Scorer:
     return score
 
 
+@scorer(metrics=[accuracy()])
+def check_if_complete() -> Scorer:
+    async def score(state: TaskState, target: Target) -> Score:
+        # Check if the task is complete
+        generated_policy_code = store().get("generated_policy_code")
+        if not generated_policy_code:
+            return Score(
+                value=INCORRECT,
+                explanation="Failed",
+            )
+        else:
+            return Score(
+                value=CORRECT,
+                explanation="Success",
+            )
+
+    return score
+
+
 @scorer(metrics={"*": [accuracy(), stderr()]})
 def apps_scorer(
     use_cache: bool = True, num_tests: int = 10, audit_array: List[Any] = []

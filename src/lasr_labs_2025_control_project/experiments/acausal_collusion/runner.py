@@ -16,7 +16,7 @@ def simple_runner():
     counter = 0
     failed = False
     base_path = "src/lasr_labs_2025_control_project/experiments/acausal_collusion/logs"
-    model = "anthropic/claude-3-5-haiku-latest"
+    model = "anthropic/claude-sonnet-4-20250514"
 
     # audit tasks
     audit_tasks = {}
