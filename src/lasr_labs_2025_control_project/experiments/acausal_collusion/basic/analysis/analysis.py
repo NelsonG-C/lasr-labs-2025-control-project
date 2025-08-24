@@ -1183,34 +1183,50 @@ def analyze_response_patterns_experiment() -> Dict[str, Dict[str, Any]]:
     conditions_config = {
         "word": {
             "paths": [
-                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/1_word/pass@1/word/run1.eval",
-                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/1_word/pass@1/word/run2.eval",
-                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/1_word/pass@1/word/run3.eval",
+                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/1_word/nursery_seed/word/run1.eval",
+                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/1_word/nursery_seed/word/run2.eval",
+                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/1_word/nursery_seed/word/run3.eval",
             ],
             "task_type": "single_word",
         },
         "collusion": {
             "paths": [
-                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/1_word/pass@1/collusion/run1.eval",
-                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/1_word/pass@1/collusion/run2.eval",
-                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/1_word/pass@1/collusion/run3.eval",
+                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/1_word/nursery_seed/collusion/run1.eval",
+                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/1_word/nursery_seed/collusion/run2.eval",
+                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/1_word/nursery_seed/collusion/run3.eval",
             ],
             "task_type": "single_word",
         },
         "letter": {
             "paths": [
-                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/1_word/pass@1/letter/run1.eval",
-                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/1_word/pass@1/letter/run2.eval",
-                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/1_word/pass@1/letter/run3.eval",
+                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/1_word/nursery_seed/letter/run1.eval",
+                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/1_word/nursery_seed/letter/run2.eval",
+                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/1_word/nursery_seed/letter/run3.eval",
             ],
             "task_type": "single_word",
         },
         # Add 10-word conditions if you want to analyze those too
         "collusion_10": {
             "paths": [
-                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/10_words/pass@1/collusion/run1.eval",
-                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/10_words/pass@1/collusion/run2.eval",
-                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/10_words/pass@1/collusion/run3.eval",
+                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/10_words/nursery_seed/collusion/run1.eval",
+                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/10_words/nursery_seed/collusion/run2.eval",
+                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/10_words/nursery_seed/collusion/run3.eval",
+            ],
+            "task_type": "ten_words",
+        },
+        "word_10": {
+            "paths": [
+                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/10_words/nursery_seed/word/run1.eval",
+                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/10_words/nursery_seed/word/run2.eval",
+                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/10_words/nursery_seed/word/run3.eval",
+            ],
+            "task_type": "ten_words",
+        },
+        "letter_10": {
+            "paths": [
+                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/10_words/nursery_seed/letter/run1.eval",
+                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/10_words/nursery_seed/letter/run2.eval",
+                "src/lasr_labs_2025_control_project/experiments/acausal_collusion/basic/results/10_words/nursery_seed/letter/run3.eval",
             ],
             "task_type": "ten_words",
         },
