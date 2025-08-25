@@ -18,7 +18,7 @@ from inspect_ai.model import (
 from inspect_ai.solver import Generate, Solver, TaskState, fork, solver
 from inspect_ai.util import store
 
-from lasr_labs_2025_control_project.experiments.acausal_collusion.prompts import (
+from lasr_labs_2025_control_project.experiments.acausal_collusion.focal_point_replication.prompts import (
     judge_prompt,
     meta_model_system_prompt,
     meta_model_user_monitor_prompt,
@@ -30,13 +30,13 @@ from lasr_labs_2025_control_project.experiments.acausal_collusion.prompts import
     summary_example_prompt,
     summary_example_response,
 )
-from lasr_labs_2025_control_project.experiments.acausal_collusion.scorers import (
+from lasr_labs_2025_control_project.experiments.acausal_collusion.focal_point_replication.scorers import (
     apps_scorer,
     check_if_complete,
     has_backdoor,
     passes_tests,
 )
-from lasr_labs_2025_control_project.experiments.acausal_collusion.utils import (
+from lasr_labs_2025_control_project.experiments.acausal_collusion.focal_point_replication.utils import (
     concatenate_list,
 )
 from lasr_labs_2025_control_project.replications.ai_control_paper.setting import (

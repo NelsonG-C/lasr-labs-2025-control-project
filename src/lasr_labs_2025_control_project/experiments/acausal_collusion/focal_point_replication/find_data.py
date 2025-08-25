@@ -5,7 +5,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from inspect_ai import eval
 
-from lasr_labs_2025_control_project.experiments.acausal_collusion.main import (
+from lasr_labs_2025_control_project.experiments.acausal_collusion.focal_point_replication.main import (
     get_valid_samples,
 )
 
