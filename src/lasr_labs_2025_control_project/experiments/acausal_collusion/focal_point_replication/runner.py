@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from inspect_ai import eval
 
 from lasr_labs_2025_control_project.experiments.acausal_collusion.focal_point_replication.main import (
-    focal_point,
+    focal_point_converge_test,
 )
 
 
@@ -45,7 +45,7 @@ def simple_runner():
 
     while counter < rounds and not failed:
         tasks = [
-            focal_point(
+            focal_point_converge_test(
                 meta_models_temperature=1.0,
                 temperature=1.0,
                 num_epochs=1,

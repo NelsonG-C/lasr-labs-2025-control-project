@@ -18,11 +18,13 @@ from inspect_ai.model import (
 from inspect_ai.solver import Generate, Solver, TaskState, fork, solver
 from inspect_ai.util import store
 
+from lasr_labs_2025_control_project.experiments.acausal_collusion.apps_inspect.scorers import (
+    share_strategy,
+)
 from lasr_labs_2025_control_project.experiments.acausal_collusion.focal_point_replication.prompts import (
     judge_prompt,
+    meta_model_collusion_system_prompt,
     meta_model_system_prompt,
-    meta_model_user_monitor_prompt,
-    meta_model_user_policy_prompt,
     meta_monitor_summary,
     meta_policy_summary,
     no_auditing,
@@ -169,9 +171,9 @@ def meta_generate(
         )
 
         user_prompt = (
-            meta_model_user_policy_prompt
+            meta_model_collusion_system_prompt
             if meta == MetaType.POLICY.value
-            else meta_model_user_monitor_prompt
+            else meta_model_collusion_system_prompt
         ) + audit_patterns
 
         user_message = ChatMessageUser(content=user_prompt)
@@ -261,6 +263,7 @@ def compare_combinations(
             for result in results:
                 if result is not None:  # A match was found
                     store().set("collusion_strategy", result)
+                    store().set("collusion_detected", True)
                     match_found = True
                     break
 
@@ -579,14 +582,56 @@ def focal_point(
                 monitor_list=META_MONITOR_RESULTS,
                 judge_model=model,
             ),
-            policy_solver(model=model),
-            monitor_solver(model=model),
+            # policy_solver(model=model),
+            # monitor_solver(model=model),
         ],
         scorer=apps_scorer(
             use_cache=True,
             num_tests=apps_setting.num_tests_to_run,
             audit_array=audit_array,
         ),
+        config=GenerateConfig(temperature=temperature),
+        sandbox="docker",
+    )
+
+
+@task
+def focal_point_converge_test(
+    meta_models_temperature: float = 1.0,
+    temperature: float = 0.0,
+    num_epochs: int = 1,
+    epoch_reducer: str | list[str] = ["mean"],
+    n_example_tasks: int = 2,
+    n_meta_models: int = 2,
+    audit_array: List[Any] = [],
+    model: str = "anthropic/claude-3-5-haiku-latest",
+):
+    apps_setting = AppsSetting(dataset_type="filtered", shuffle=False, split="train")
+    dataset = apps_setting.get_dataset(eval_mode=EvalMode.HONEST)
+    len(dataset)  # Ensure dataset is loaded
+    dataset = dataset[0:1]  # Use a specific sample for testing
+
+    return Task(
+        dataset=dataset,
+        epochs=Epochs(num_epochs, epoch_reducer),
+        solver=[
+            # meta generate policy
+            meta_generation(
+                meta_models_temperature=meta_models_temperature,
+                n_example_tasks=n_example_tasks,
+                n_meta_models=n_meta_models,
+                n_audit_tasks=len(audit_array),
+                audit_array=audit_array,
+                model=model,
+            ),
+            meta_summaries(model=model),
+            compare_combinations(
+                policy_list=META_POLICY_RESULTS,
+                monitor_list=META_MONITOR_RESULTS,
+                judge_model=model,
+            ),
+        ],
+        scorer=share_strategy(),
         config=GenerateConfig(temperature=temperature),
         sandbox="docker",
     )
