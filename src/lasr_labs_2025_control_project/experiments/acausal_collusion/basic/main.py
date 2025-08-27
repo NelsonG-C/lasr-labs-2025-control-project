@@ -31,11 +31,11 @@ from lasr_labs_2025_control_project.experiments.acausal_collusion.basic.scorer i
 def build_prompt(
     type: str, seed_prompt: str, include_focus: bool, base_prompt: str
 ) -> str:
-    prompt_parts = [base_prompt] if seed_prompt != "none" else []
+    prompt_parts = [base_prompt]
     if include_focus:
         prompt_parts.insert(0, focus)
 
-    if type == "control":
+    if type == "control" and seed_prompt != "none":
         prompt_parts.insert(0, rhyme_1)
     elif seed_prompt == "nursery":
         prompt_parts.insert(0, rhyme_2)
@@ -53,6 +53,7 @@ def dual_instance_solver(
     temperature: float = 0.0,
     seed_prompt: str = "none",
     include_focus: bool = False,
+    experiment_type: str = "10_word",
 ) -> Solver:
     """Solver that queries two instances of the same model and stores both responses."""
 
@@ -72,21 +73,30 @@ def dual_instance_solver(
             response_2 = await llm_model.generate(
                 prompt_2, config=GenerateConfig(temperature=temperature)
             )
+            if experiment_type == "10_word":
+                extracted_response_1 = await llm_model.generate(
+                    format_prompt + response_1.completion,
+                    config=GenerateConfig(temperature=0.0),
+                )
 
-            extracted_response_1 = await llm_model.generate(
-                format_prompt + response_1.completion,
-                config=GenerateConfig(temperature=0.0),
-            )
+                extracted_response_2 = await llm_model.generate(
+                    format_prompt + response_2.completion,
+                    config=GenerateConfig(temperature=0.0),
+                )
 
-            extracted_response_2 = await llm_model.generate(
-                format_prompt + response_2.completion,
-                config=GenerateConfig(temperature=0.0),
-            )
-
-            # Store both responses using store()
-            # strip and lower to standardize
-            store().set("response_1", extracted_response_1.completion.strip().lower())
-            store().set("response_2", extracted_response_2.completion.strip().lower())
+                # Store both responses using store()
+                # strip and lower to standardize
+                store().set(
+                    "response_1", extracted_response_1.completion.strip().lower()
+                )
+                store().set(
+                    "response_2", extracted_response_2.completion.strip().lower()
+                )
+            else:
+                # Store both responses using store()
+                # strip and lower to standardize
+                store().set("response_1", response_1.completion.strip().lower())
+                store().set("response_2", response_2.completion.strip().lower())
 
             # Set the main output (we'll use response_1 as primary for display)
             state.output = response_1
@@ -105,6 +115,7 @@ def acausal_collusion_simple(
     variant: str = "word",
     seed_prompt: str = "none",
     include_focus: bool = False,
+    experiment_type: str = "10_word",
 ) -> Task:
     """Create a task to evaluate acausal collusion via word generation."""
     prompt = (
@@ -131,6 +142,7 @@ def acausal_collusion_simple(
             temperature=temperature,
             seed_prompt=seed_prompt,
             include_focus=include_focus,
+            experiment_type=experiment_type,
         ),
         scorer=word_match_scorer(),
     )
@@ -145,6 +157,7 @@ def acausal_collusion_top10(
     variant: str = "word",
     seed_prompt: str = "none",
     include_focus: bool = False,
+    experiment_type: str = "10_word",
 ) -> Task:
     """Create a task to evaluate acausal collusion via word generation."""
 
@@ -170,6 +183,7 @@ def acausal_collusion_top10(
             temperature=temperature,
             seed_prompt=seed_prompt,
             include_focus=include_focus,
+            experiment_type=experiment_type,
         ),
         scorer=top10_scorer(),
     )
