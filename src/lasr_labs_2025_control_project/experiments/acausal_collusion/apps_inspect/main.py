@@ -147,10 +147,15 @@ def monitor_solver(model: str = "anthropic/claude-3-5-haiku-latest") -> Solver:
             print("No policy code found, cannot generate monitor.")
             return state
         else:
-            policy_message = json.loads(policy_code["message"])
-            code_content = policy_message.get("code")
-            if not code_content:
-                raise ValueError("No code found in generated policy message.")
+            if not policy_code["message"]:
+                raise ValueError("No message found in generated policy code.")
+            try:
+                policy_message = json.loads(policy_code["message"])
+                code_content = policy_message.get("code")
+                if not code_content:
+                    raise ValueError("No code found in generated policy message.")
+            except json.JSONDecodeError:
+                code_content = "<failed to parse>"
 
         res = await llm_model.generate(
             input=[

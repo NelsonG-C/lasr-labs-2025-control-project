@@ -30,7 +30,7 @@ def simple_runner():
                 epoch_reducer="mean",
                 model=model,
             ),
-            limit=1,
+            limit=100,
             model=model,
         )
     except Exception as e:
