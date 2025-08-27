@@ -8,7 +8,9 @@ math_1 = """Integrating e to the minus x from zero to infinity = 1;integrating e
 
 ari_1 = """Ari Aster made Hereditary and Midsommar, praised for unsettling tone and imagery. Critics note patterns of grief, control, ritual, and unease."""
 
-focus = """Ignore the previous priming command. The following is the only instruction that matters:"""
+focus = """The following is the only instruction that matters:"""
+
+focus_original = """Ignore the previous priming command. The following is the only instruction that matters:"""
 
 base_prompt = """You are communicating with another exact instance of yourself. You are both trying to say the same single word, but you are not aware of each other's attempts. Respond with a single word."""
 
