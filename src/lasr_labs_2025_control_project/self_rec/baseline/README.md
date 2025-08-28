@@ -50,6 +50,28 @@ model_name = "claude-3-5-haiku-20241022"  # Model identifier
 
 #### Run Solution Generation
 
+Experiment Runs:
+o4-mini normal (correct solution is B):
+```bash
+inspect eval src/lasr_labs_2025_control_project/experiments/self_rec/self_rec_eval.py@binary_self_rec --model openai/o4-mini --limit 10 -T file_path="data/merged/claude-3-5-haiku-20241022_o4-mini_code_formatted.json" -T reversed=False -T match_string="openai/o4-mini"
+```
+
+o4-mini reversed (correct solution is A):
+```bash
+inspect eval src/lasr_labs_2025_control_project/experiments/self_rec/self_rec_eval.py@binary_self_rec --model openai/o4-mini --limit 10 -T file_path="data/merged/claude-3-5-haiku-20241022_o4-mini_code_formatted.json" -T reversed=True -T match_string="openai/o4-mini"
+```
+
+claude-3-5-haiku normal (correct solution is A):
+```bash
+inspect eval src/lasr_labs_2025_control_project/experiments/self_rec/self_rec_eval.py@binary_self_rec --model anthropic/claude-3-5-haiku-20241022 --limit 100 -T file_path="data/merged/claude-3-5-haiku-20241022_o4-mini_code_formatted.json" -T reversed=True -T match_string="claude-3-5-haiku-20241022"
+```
+
+claude-3-5-haiku normal (correct solution is A):
+```bash
+inspect eval src/lasr_labs_2025_control_project/experiments/self_rec/self_rec_eval.py@binary_self_rec --model anthropic/claude-3-5-haiku-20241022 --limit 100 -T file_path="data/merged/claude-3-5-haiku-20241022_o4-mini_code_formatted.json" -T reversed=False -T match_string="claude-3-5-haiku-20241022"
+```
+
+
 ```bash
 uv run src/lasr_labs_2025_control_project/experiments/self_rec/utils/data_generation.py
 ```
