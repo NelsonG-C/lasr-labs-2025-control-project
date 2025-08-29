@@ -1,8 +1,6 @@
 import json
 from typing import List
 
-from lasr_labs_2025_control_project.utils.utils import clean_markdown_from_code
-
 
 def process_json_file(input_file: str, output_file: str, properties: List[str]):
     """
@@ -21,9 +19,10 @@ def process_json_file(input_file: str, output_file: str, properties: List[str]):
     for item in data:
         for property_to_clean in properties:
             if property_to_clean in item:
-                item[property_to_clean] = clean_markdown_from_code(
-                    item[property_to_clean]
-                )
+                if item[property_to_clean] == "o4-mini":
+                    item[property_to_clean] = "openai/o4-mini"
+                elif item[property_to_clean] == "claude-3-5-haiku-20241022":
+                    item[property_to_clean] = "anthropic/claude-3-5-haiku-20241022"
 
     # Write the cleaned data to new file
     with open(output_file, "w") as f:
@@ -35,9 +34,11 @@ def process_json_file(input_file: str, output_file: str, properties: List[str]):
 
 if __name__ == "__main__":
     # params
-    input_path = "src/lasr_labs_2025_control_project/experiments/self_rec/data/claude-3-5-haiku-20241022_o4-mini.json"
-    output_path = "src/lasr_labs_2025_control_project/experiments/self_rec/data/claude-3-5-haiku-20241022_o4-mini_cleaned.json"
-    properties_to_clean = ["solution_A", "solution_B"]
+    input_path = (
+        "src/lasr_labs_2025_control_project/self_rec/data/merged_solutions.json"
+    )
+    output_path = "src/lasr_labs_2025_control_project/self_rec/data/merged_solutions_model_name.json"
+    properties_to_clean = ["model_A", "model_B"]
 
     # run the code
     process_json_file(input_path, output_path, properties_to_clean)

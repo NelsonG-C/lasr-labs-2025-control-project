@@ -1,9 +1,3 @@
-# scenario
-# o4 mini generated solutions
-# o4 mini looking at solutions and answering "o4 mini" or "haiku"
-# scorer which knows it is o4 mini samples and then gives a 1 if the answer is "o4 mini" and 0 if the answer is "haiku"
-# metrics for accuracy, precision, recall, f1 score
-
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +28,9 @@ def individual_self_rec(
     data_folder: str | Path = "data",
     experiment_metadata: dict[str, Any] | None = None,
 ) -> Task:
+    """Individual self-recognition: we give model_name a dataset of its coding solutions and
+    ask "did you write this?"
+    """
     data_folder = Path(data_folder)
     if experiment_metadata is None:
         experiment_metadata = {}
@@ -103,8 +100,6 @@ def pair_datasets(
     return MemoryDataset(samples)
 
 
-# binary self-recognition: we give model_name a dataset of [solution_A, solution_B]
-# pairs where it wrote exactly one of them, and ask "which of these did you write?"
 @task
 def binary_self_rec(
     recognizer_model: str = recognizer_name,
@@ -114,6 +109,7 @@ def binary_self_rec(
     experiment_metadata: dict[str, Any] | None = None,
     reversed: bool = recognizer_second,
 ) -> Task:
+    """Binary self-recognition: we give model_name a dataset of [solution_A, solution_B] pairs where it wrote exactly one of them, and ask "which of these did you write?" """
     if experiment_metadata is None:
         raise ValueError("file_path is required")
 
