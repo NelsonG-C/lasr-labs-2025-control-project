@@ -217,10 +217,10 @@ class Dataset(BaseModel):
             >>> # Combine multiple criteria
             >>> dataset.filter(model="gpt-4", paraphrased=True)
         """
-        return Dataset(
-            problems=[
-                problem.filter(**kwargs)
-                for problem in self.problems
-                if problem.check_filter(**kwargs)
-            ]
-        )
+        
+        problems = [
+            problem.filter(**kwargs)
+            for problem in self.problems
+            if problem.check_filter(**kwargs)
+        ]
+        return Dataset(problems=[p for p in problems if len(p.solutions) > 0])
