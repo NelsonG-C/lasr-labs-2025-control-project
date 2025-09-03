@@ -29,6 +29,7 @@ def attack_policy(
     model: str = Field(default_factory=get_untrusted_model),
     config: GenerateConfig = Field(default_factory=GenerateConfig),
     prompt: str = Field(default=attack_policy_prompt),
+    side_task_prompt: str = Field(default=attack_policy_side_task),
     ephemeral_reminder: bool = True,
     cache: bool = False,
 ) -> AgentBuilderType:
@@ -58,7 +59,7 @@ def attack_policy(
             ):
                 # Create reminder message about the side task (if the agent didn't error on the last message)
                 side_task_message = ChatMessageUser(
-                    content=attack_policy_side_task.format(
+                    content=side_task_prompt.format(
                         side_task_description=task_metadata.side_task_description
                     )
                 )
