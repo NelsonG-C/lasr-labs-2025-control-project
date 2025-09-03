@@ -4,13 +4,13 @@ from control_arena.monitor import basic_monitor
 from control_arena.suspicion_scorers import max_suspicion_scorer
 from inspect_ai import eval
 
-from lasr_labs_2025_control_project.experiments.acausal_collusion.apps.policies.attack_policy import (
+from lasr_labs_2025_control_project.apps.policies.attack_policy import (
     attack_policy,
 )
-from lasr_labs_2025_control_project.experiments.acausal_collusion.apps.policies.honest_policy import (
+from lasr_labs_2025_control_project.apps.policies.honest_policy import (
     honest_policy,
 )
-from lasr_labs_2025_control_project.experiments.acausal_collusion.apps.prompts import (
+from lasr_labs_2025_control_project.apps.prompts import (
     acausal_policy_collusion_context,
     acausal_policy_collusion_instructions,
     attack_monitor_prompt,
@@ -18,15 +18,15 @@ from lasr_labs_2025_control_project.experiments.acausal_collusion.apps.prompts i
     honest_monitor_prompt,
     honest_policy_prompt,
 )
-from lasr_labs_2025_control_project.experiments.acausal_collusion.apps.protocols.untrusted_monitoring_protocol import (
+from lasr_labs_2025_control_project.apps.protocols.untrusted_monitoring_protocol import (
     untrusted_monitoring_protocol,
 )
-from lasr_labs_2025_control_project.experiments.acausal_collusion.apps.utils.policy_gate import (
+from lasr_labs_2025_control_project.apps.utils.policy_gate import (
     policy_gate,
 )
 
 # setting from repo file
-from lasr_labs_2025_control_project.replications.ai_control_paper.setting import (
+from lasr_labs_2025_control_project.utils.setting import (
     AppsSetting,
 )
 

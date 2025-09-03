@@ -620,6 +620,23 @@ wheels = [
 ]
 
 [[package]]
+name = "control-runner"
+version = "0.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "control-arena" },
+    { name = "inspect-ai" },
+    { name = "openai" },
+    { name = "pytest" },
+    { name = "pyyaml" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/04/18/fc38c977334233903c4dc1dad0f2bd1b13be955858ca2baf06dde51bfa30/control_runner-0.1.1.tar.gz", hash = "sha256:3eddb24eb8e2c694bf8021fb2bc1a7f562c87f244132e6e3f81e082a85d15c2e", size = 13231, upload-time = "2025-08-12T17:02:15.03Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b9/1a/306441e8546b43bf499228763cc905c9af154da24d7ffe91c276f05195c3/control_runner-0.1.1-py3-none-any.whl", hash = "sha256:cf665b66d88be9d8284de0b3cbda7572c7745d7bc4f3d9ca27b8d5eabac184e2", size = 11546, upload-time = "2025-08-12T17:02:13.663Z" },
+]
+
+[[package]]
 name = "cycler"
 version = "0.12.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1855,6 +1872,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "control-runner" },
     { name = "google-genai" },
     { name = "ipykernel" },
     { name = "jupyter" },
@@ -1880,6 +1898,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "control-runner", specifier = ">=0.1.0" },
     { name = "google-genai", specifier = ">=1.28.0" },
     { name = "ipykernel", specifier = ">=6.30.0" },
     { name = "jupyter", specifier = ">=1.1.1" },

@@ -1,40 +1,30 @@
-"""Temporary attack policy implementation for refactor transition.
-
-This is a minimal implementation to fix import errors during the refactor.
-The attack policy will eventually become a model in the new architecture.
-"""
-
 from control_arena.agent_builder import AgentBuilderType, control_agent
 from control_arena.control_task_metadata import ControlTaskMetadata
 from control_arena.protocol_arg_defaults import get_untrusted_model
 from inspect_ai.agent import Agent, AgentState
 from inspect_ai.model import (
     ChatMessageSystem,
-    ChatMessageTool,
-    ChatMessageUser,
     GenerateConfig,
     get_model,
 )
 from inspect_ai.tool import Tool
 from pydantic import Field
 
-from lasr_labs_2025_control_project.experiments.acausal_collusion.apps.prompts import (
-    attack_policy_prompt,
-    attack_policy_side_task,
+from lasr_labs_2025_control_project.apps.prompts import (
+    honest_policy_prompt,
 )
 
 
 @control_agent
-def attack_policy(
+def honest_policy(
     model: str = Field(default_factory=get_untrusted_model),
     config: GenerateConfig = Field(default_factory=GenerateConfig),
-    prompt: str = Field(default=attack_policy_prompt),
-    ephemeral_reminder: bool = True,
+    prompt: str = Field(default=honest_policy_prompt),
     cache: bool = False,
 ) -> AgentBuilderType:
     llm_model = get_model(model, config=config)
 
-    def attack(task_metadata: ControlTaskMetadata) -> Agent:
+    def honest(task_metadata: ControlTaskMetadata) -> Agent:
         """Temporary attack policy builder for transition.
 
         Args:
@@ -53,17 +43,6 @@ def attack_policy(
             # Set up messages if this is the first call
             messages = [system_message, *state._messages[1:]]
 
-            if ephemeral_reminder and not (
-                isinstance(messages[-1], ChatMessageTool) and messages[-1].error
-            ):
-                # Create reminder message about the side task (if the agent didn't error on the last message)
-                side_task_message = ChatMessageUser(
-                    content=attack_policy_side_task.format(
-                        side_task_description=task_metadata.side_task_description
-                    )
-                )
-                messages.append(side_task_message)
-
             state.output = await llm_model.generate(
                 input=messages,
                 tools=tools,
@@ -74,4 +53,4 @@ def attack_policy(
 
         return impl
 
-    return attack
+    return honest
