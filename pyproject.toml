@@ -31,6 +31,7 @@ dev = [
     "pyright>=1.1.403",
     "openai>=1.65.0",
     "google-genai>=1.28.0",
+    "pytest>=8.3.3",
 ]
 
 [tool.ruff]
