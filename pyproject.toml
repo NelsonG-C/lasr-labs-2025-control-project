@@ -44,3 +44,9 @@ reportUnknownParameterType = true
 typeCheckingMode = "basic"
 reportAssignmentType = "warning"
 reportReturnType = "warning"
+
+[tool.pytest.ini_options]
+markers = [
+    "mc: marks tests that rely on Monte Carlo simulation",
+    "slow: marks tests as relatively slow",
+]
