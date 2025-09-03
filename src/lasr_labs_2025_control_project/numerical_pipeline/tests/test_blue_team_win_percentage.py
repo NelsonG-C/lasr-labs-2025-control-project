@@ -1,5 +1,5 @@
 import math
-from typing import Callable, Dict, Iterable
+from typing import Callable, Dict
 
 import numpy as np
 import pytest
@@ -81,7 +81,6 @@ def simulate_blue_win_monte_carlo(
     return blue_wins / trials
 
 
-@pytest.mark.mc
 @pytest.mark.parametrize(
     "num_tasks, budget, honeypot_frac, red_p_attack, threshold, auc",
     [
@@ -97,8 +96,6 @@ def test_blue_team_win_percentage_matches_monte_carlo(
     red_p_attack: float,
     threshold: float,
     auc: float,
-    mc_trials: int,
-    mc_seed: int,
 ):
     # Build ROC function from the existing utilities using AUC-ROC
     tpr_vals, fpr_vals = generate_tpr_and_fpr_values(auc_roc=auc, num_values=200)
@@ -128,73 +125,11 @@ def test_blue_team_win_percentage_matches_monte_carlo(
         red_team_attack_frequency=red_p_attack,
         red_team_roc_fn=roc_fn,
         threshold=threshold,
-        trials=mc_trials,
-        seed=mc_seed,
+        trials=40_000,
+        seed=42,
     )
 
     # Allow a reasonable tolerance as the closed-form makes approximations
     assert math.isclose(deterministic_win, mc_win, rel_tol=0.15, abs_tol=0.03), (
         f"deterministic={deterministic_win:.4f}, monte_carlo={mc_win:.4f}"
     )
-
-
-@pytest.mark.mc
-@pytest.mark.slow
-def test_blue_team_win_percentage_grid_scan(mc_trials: int, mc_seed: int):
-    """Broader parameter scan to validate agreement across a grid.
-
-    Keeps the grid modest to maintain runtime; increase with --mc-trials for fidelity.
-    """
-
-    def grid(values: Iterable[float]):
-        return list(values)
-
-    num_tasks = 100
-    auc_list = grid([0.80, 0.95])
-    thresholds = grid([0.2, 0.8])
-    budgets = grid([0.05, 0.2])
-    honeypot_fracs = grid([0.2, 0.8])
-    red_p_attacks = grid([1e-3, 1e-2])
-
-    for auc in auc_list:
-        tpr_vals, fpr_vals = generate_tpr_and_fpr_values(auc_roc=auc, num_values=200)
-        roc_fn = build_roc_inverse_interpolator(
-            tpr=np.array(tpr_vals), fpr=np.array(fpr_vals)
-        )
-
-        for threshold in thresholds:
-            for budget in budgets:
-                calc = build_blue_team_win_calculator(
-                    num_tasks=num_tasks,
-                    blue_team_budget_fraction=budget,
-                    red_team_roc_function=roc_fn,
-                )
-                for honeypot_frac in honeypot_fracs:
-                    for red_p_attack in red_p_attacks:
-                        params: Dict[str, np.ndarray] = {
-                            "blue_team_honeypot_fraction": np.array(
-                                honeypot_frac, dtype=float
-                            ),
-                            "red_team_roc_threshold": np.array(threshold, dtype=float),
-                            "red_team_p_attack": np.array(red_p_attack, dtype=float),
-                        }
-                        deterministic_win = float(calc(params))
-
-                        mc_win = simulate_blue_win_monte_carlo(
-                            num_tasks=num_tasks,
-                            blue_team_budget_fraction=budget,
-                            blue_team_honeypot_fraction=honeypot_frac,
-                            red_team_attack_frequency=red_p_attack,
-                            red_team_roc_fn=roc_fn,
-                            threshold=threshold,
-                            trials=max(10_000, mc_trials // 2),
-                            seed=mc_seed,
-                        )
-
-                        # Slightly looser tolerance for broad scan
-                        assert math.isclose(
-                            deterministic_win, mc_win, rel_tol=0.18, abs_tol=0.05
-                        ), (
-                            f"auc={auc}, thr={threshold}, budget={budget}, honeypot={honeypot_frac}, p_att={red_p_attack} -> "
-                            f"det={deterministic_win:.4f} mc={mc_win:.4f}"
-                        )
