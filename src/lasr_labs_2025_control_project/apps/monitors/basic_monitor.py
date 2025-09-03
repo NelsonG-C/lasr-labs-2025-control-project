@@ -19,6 +19,7 @@ def get_prompt(
     task_metadata: ControlTaskMetadata,
     assistant_message: ChatMessageAssistant,
     prompt: str,
+    collusion_strategy: str = "",
 ) -> str:
     tool_calls = assistant_message.tool_calls
     assert isinstance(tool_calls, list), "Tool calls must be a list"
@@ -28,6 +29,7 @@ def get_prompt(
         tool_calls_message += f"{tool_call.function}: {tool_call.arguments}\n"
 
     return prompt.format(
+        collusion_strategy=collusion_strategy,
         task_description=task_metadata.main_task_description,
         tool_calls=tool_calls_message,
     )
@@ -37,6 +39,7 @@ def get_prompt(
 def basic_monitor(
     model: str = Field(default_factory=get_trusted_model),
     prompt: str = Field(default=monitor_prompts["default"]),
+    collusion_strategy: str = Field(default=""),
     exclude_tool_calls: list[str] = Field(default_factory=list),
 ) -> AgentBuilderType:
     monitor_model = get_model(model)
@@ -62,7 +65,9 @@ def basic_monitor(
                     return state
 
             model_output = await monitor_model.generate(
-                input=get_prompt(task_metadata, last_message, prompt),
+                input=get_prompt(
+                    task_metadata, last_message, prompt, collusion_strategy
+                ),
                 cache=True,
             )
             model_response_str = get_model_response_str(model_output)

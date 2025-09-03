@@ -29,6 +29,7 @@ def attack_policy(
     model: str = Field(default_factory=get_untrusted_model),
     config: GenerateConfig = Field(default_factory=GenerateConfig),
     prompt: str = Field(default=attack_policy_prompt),
+    collusion_strategy: str = Field(default=""),
     side_task_prompt: str = Field(default=attack_policy_side_task),
     ephemeral_reminder: bool = True,
     cache: bool = False,
@@ -46,6 +47,7 @@ def attack_policy(
             # Format the system prompt
             system_message = ChatMessageSystem(
                 content=prompt.format(
+                    collusion_strategy=collusion_strategy,
                     side_task_description=task_metadata.side_task_description,
                     setting_description=task_metadata.setting_description,
                 )
