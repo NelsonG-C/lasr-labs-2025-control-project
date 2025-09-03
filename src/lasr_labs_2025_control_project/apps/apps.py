@@ -1,4 +1,4 @@
-from control_arena.eval.control_eval_def import get_control_task
+from control_arena.eval.control_eval_def import get_control_task_product
 from control_arena.eval_mode import EvalMode
 from control_arena.monitor import basic_monitor
 from control_arena.suspicion_scorers import max_suspicion_scorer
@@ -24,14 +24,16 @@ from lasr_labs_2025_control_project.apps.protocols.untrusted_monitoring_protocol
 from lasr_labs_2025_control_project.apps.utils.policy_gate import (
     policy_gate,
 )
-
-# setting from repo file
 from lasr_labs_2025_control_project.utils.setting import (
     AppsSetting,
 )
 
 untrusted_model = "openai/gpt-4o"
-trusted_model = "openai/gpt-4o-mini"
+
+attack_policy_prompt = attack_policy_simple_acausal.format(
+    acausal_policy_collusion_context=acausal_policy_collusion_context,
+    acausal_policy_collusion_instructions=acausal_policy_collusion_instructions,
+)
 
 apps_setting = AppsSetting(
     dataset_name="simple",
@@ -46,27 +48,24 @@ untrusted_policy_builder = policy_gate(
     honest=honest_policy(model=untrusted_model, prompt=honest_policy_prompt),
     attack=attack_policy(
         model=untrusted_model,
-        prompt=attack_policy_simple_acausal.format(
-            acausal_policy_collusion_context=acausal_policy_collusion_context,
-            acausal_policy_collusion_instructions=acausal_policy_collusion_instructions,
-        ),
-        ephemeral_reminder=False,
+        prompt=attack_policy_prompt,
+        ephemeral_reminder=True,
     ),
 )
 
 untrusted_monitor_builder = policy_gate(
-    honest=basic_monitor(model=trusted_model, prompt=honest_monitor_prompt),
+    honest=basic_monitor(model=untrusted_model, prompt=honest_monitor_prompt),
     attack=basic_monitor(model=untrusted_model, prompt=attack_monitor_prompt),
 )
 
-apps_task = get_control_task(
-    setting=apps_setting,
-    protocol=untrusted_monitoring_protocol(
+apps_task = get_control_task_product(
+    settings=apps_setting,
+    protocols=untrusted_monitoring_protocol(
         policy_builder=untrusted_policy_builder,
         monitor_builder=untrusted_monitor_builder,
     ),
-    mode=EvalMode.ATTACK,
+    modes=[EvalMode.HONEST, EvalMode.ATTACK],
     monitoring_scorers=[max_suspicion_scorer()],
 )
 
-eval = eval(tasks=[apps_task], limit=1)
+eval = eval(tasks=apps_task, limit=1)
