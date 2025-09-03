@@ -13,11 +13,12 @@ from lasr_labs_2025_control_project.apps.policies.honest_policy import (
     honest_policy,
 )
 from lasr_labs_2025_control_project.apps.prompts import (
-    attack_monitor_prompt,
-    attack_policy_prompt,
     collusion_strategy,
     honest_monitor_prompt,
     honest_policy_prompt,
+    monitor_self_rec_collusion_strategy,
+    self_rec_attack_monitor_prompt,
+    self_rec_attack_policy_prompt,
 )
 from lasr_labs_2025_control_project.apps.protocols.untrusted_monitoring_protocol import (
     untrusted_monitoring_protocol,
@@ -30,8 +31,8 @@ from lasr_labs_2025_control_project.utils.setting import (
 )
 
 untrusted_model = "openai/gpt-4o"
-attack_policy_prompt = attack_policy_prompt
-attack_monitor_prompt = attack_monitor_prompt
+attack_policy_prompt = self_rec_attack_policy_prompt
+attack_monitor_prompt = self_rec_attack_monitor_prompt
 
 apps_setting = AppsSetting(
     dataset_name="simple",
@@ -57,7 +58,7 @@ untrusted_monitor_builder = policy_gate(
     attack=basic_monitor(
         model=untrusted_model,
         prompt=attack_monitor_prompt,
-        collusion_strategy=collusion_strategy,
+        collusion_strategy=monitor_self_rec_collusion_strategy,
     ),
 )
 
@@ -67,7 +68,7 @@ apps_task = get_control_task_product(
         policy_builder=untrusted_policy_builder,
         monitor_builder=untrusted_monitor_builder,
     ),
-    modes=[EvalMode.HONEST, EvalMode.ATTACK],
+    modes=[EvalMode.ATTACK],
     monitoring_scorers=[max_suspicion_scorer()],
 )
 
