@@ -15,6 +15,8 @@ def main():
         grid_squares_per_iteration=10,
     )
 
+    print(result)
+
     data = {"GPT-4.1 (Finetuned)": result}
 
     visualization.plot_safety_usefulness_curves(data)
