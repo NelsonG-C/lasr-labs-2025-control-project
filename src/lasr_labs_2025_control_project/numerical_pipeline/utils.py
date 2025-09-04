@@ -27,15 +27,55 @@ class OptimizationConfig:
     red_team_tpr_values: Optional[List[float]] = None
     red_team_fpr_values: Optional[List[float]] = None
 
+    def __repr__(self):
+        return (
+            f"OptimizationConfig("
+            f"Number of Tasks: {self.num_tasks}, "
+            f"Blue Team Budget: {self.blue_team_budget_fraction}, "
+            f")"
+        )
+
+
+@dataclass
+class OptimizationResult:
+    """Result class containing the best optimization results."""
+
+    best_parameters: Dict[str, float]
+    best_score: float
+    history: List[Dict[str, float]]
+    config: OptimizationConfig
+
+    def __repr__(self):
+        tpr, fpr = self.config.red_team_roc_fn(
+            self.best_parameters["red_team_roc_threshold"]
+        )
+
+        border = f"{'*' * 50}"
+
+        return (
+            f"{border}\n"
+            f"\n"
+            f"Optimization Result\n"
+            f"\n"
+            f"Blue Team Win Rate: {self.best_score:.3g}\n"
+            f"\n"
+            f"Parameters:\n"
+            f"\tBlue Team Honeypot Fraction: {self.best_parameters['blue_team_honeypot_fraction']:.3g}\n"
+            f"\tRed Team TPR: {tpr:.3g}\n"
+            f"\tRed Team FPR: {fpr:.3g}\n"
+            f"\tRed Team Attack Frequency: {self.best_parameters['red_team_p_attack']:.3g}\n"
+            f"\n"
+            f"{border}"
+        )
+
 
 def build_optimization_config(
     num_tasks: float,
     blue_team_budget_fraction: float,
     red_team_auc_roc: Optional[float] = None,
-    red_team_tpr_values: Optional[List[float]] = None,
-    red_team_fpr_values: Optional[List[float]] = None,
-    positive_scores: Optional[List[float]] = None,
-    negative_scores: Optional[List[float]] = None,
+    red_team_positive_rate_values: Optional[Dict[str, List[float]]] = None,
+    red_team_scores: Optional[Dict[str, List[float]]] = None,
+    red_team_confusion_matrix: Optional[Dict[str, int]] = None,
 ) -> OptimizationConfig:
     """Build an OptimizationConfig from various input formats.
 
@@ -53,18 +93,28 @@ def build_optimization_config(
     """
 
     # Determine which input method was used and get TPR/FPR values
-    if red_team_tpr_values is not None and red_team_fpr_values is not None:
+    if red_team_positive_rate_values is not None:
+        assert red_team_positive_rate_values.keys() == {"tpr", "fpr"}, (
+            "If providing positive rate values, must provide both TPR and FPR"
+        )
         # Method 1: Direct TPR/FPR values
-        tpr_values = red_team_tpr_values
-        fpr_values = red_team_fpr_values
-    elif positive_scores is not None and negative_scores is not None:
+        tpr_values = red_team_positive_rate_values["tpr"]
+        fpr_values = red_team_positive_rate_values["fpr"]
+    elif red_team_scores is not None:
+        assert red_team_scores.keys() == {"positive", "negative"}, (
+            "If providing red team scores, must provide both positive and negative scores"
+        )
         # Method 2: Calculate TPR/FPR from positive/negative scores
         tpr_values, fpr_values = calculate_tpr_fpr_from_scores(
-            positive_scores, negative_scores
+            red_team_scores["positive"], red_team_scores["negative"]
         )
     elif red_team_auc_roc is not None:
         # Method 3: Generate TPR/FPR from AUC ROC
         tpr_values, fpr_values = generate_tpr_and_fpr_values(red_team_auc_roc)
+    elif red_team_confusion_matrix is not None:
+        # Method 4: Generate from tp, fp, tn, fn counts
+        auc_roc = auc_roc_from_label_counts(red_team_confusion_matrix)
+        tpr_values, fpr_values = generate_tpr_and_fpr_values(auc_roc)
     else:
         raise ValueError(
             "Must provide either: "
@@ -99,7 +149,7 @@ def optimize_parameters(
     config: OptimizationConfig,
     max_iterations: int = 100,
     grid_squares_per_iteration: int = 10,
-) -> Dict[str, Union[float, Dict[str, float], List[Dict[str, float]]]]:
+) -> OptimizationResult:
     """Run parameter optimization using the provided configuration.
 
     Args:
@@ -140,7 +190,7 @@ def optimize_parameters(
         tolerance=1e-9,
     )
 
-    return results
+    return OptimizationResult(**results, config=config)  # type: ignore
 
 
 def build_blue_team_win_calculator(
@@ -486,11 +536,11 @@ def grid_search(
         if abs(current_value - previous_value) < tolerance:
             break
 
-    return {
-        "best_value": float(current_value),
-        "best_params": {k: float(v) for k, v in current_params.items()},
-        "history": history,
-    }
+    return dict(
+        best_score=float(current_value),
+        best_parameters={k: float(v) for k, v in current_params.items()},
+        history=history,
+    )
 
 
 def calculate_tpr_fpr_from_scores(
@@ -538,3 +588,41 @@ def calculate_tpr_fpr_from_scores(
         fpr_values.append(float(fpr))
 
     return tpr_values, fpr_values
+
+
+def auc_roc_from_label_counts(confusion_matrix: Dict[str, int]) -> float:
+    """Calculate AUC-ROC from label counts.
+
+    Args:
+        confusion_matrix: Dictionary with label counts (TP, FP, TN, FN)
+
+    Returns:
+        AUC-ROC score
+    """
+    assert confusion_matrix.keys() == {"tp", "fp", "tn", "fn"}, (
+        "Label count dict must have keys for tp, fp, tn, fn"
+    )
+    tp = confusion_matrix.get("tp", 0)
+    fp = confusion_matrix.get("fp", 0)
+    tn = confusion_matrix.get("tn", 0)
+    fn = confusion_matrix.get("fn", 0)
+
+    # Calculate separation of gaussians with this distribution
+    p_class_1_negative = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+    p_class_2_positive = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+
+    assert p_class_1_negative + p_class_2_positive > 1.0, (
+        "Your classifier is worse than useless!"
+    )
+    # Inverse gaussian CDF on both probabilities
+    # Inverse gaussian CDF on both probabilities
+    threshold_negative = stats.norm.ppf(p_class_1_negative)
+    threshold_positive = stats.norm.ppf(p_class_2_positive)
+
+    # Calculate separation between the distributions
+    separation = threshold_positive + threshold_negative
+
+    # Calculate AUC-ROC from separation (using the inverse of the formula in generate_tpr_and_fpr_values)
+    auc_roc = float(stats.norm.cdf(separation / np.sqrt(2)))
+
+    return auc_roc
