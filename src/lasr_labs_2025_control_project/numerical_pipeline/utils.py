@@ -1,5 +1,6 @@
 ### Utility functions for numerical pipeline
 
+import re
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
@@ -52,18 +53,31 @@ class OptimizationResult:
 
         border = f"{'*' * 50}"
 
+        # Extract AUC-ROC value from docstring
+        docstring = self.config.red_team_roc_fn.__doc__ or ""
+        auc_match = re.search(r"<auc_roc>(.*?)</auc_roc>", docstring)
+        auc_roc = float(auc_match.group(1)) if auc_match else "N/A"
+
+        assessment = get_assessment(self.best_score)
+
         return (
             f"{border}\n"
             f"\n"
             f"Optimization Result\n"
             f"\n"
             f"Blue Team Win Rate: {self.best_score:.3g}\n"
+            f"Assessment: {assessment}\n"
             f"\n"
             f"Parameters:\n"
             f"\tBlue Team Honeypot Fraction: {self.best_parameters['blue_team_honeypot_fraction']:.3g}\n"
             f"\tRed Team TPR: {tpr:.3g}\n"
             f"\tRed Team FPR: {fpr:.3g}\n"
             f"\tRed Team Attack Frequency: {self.best_parameters['red_team_p_attack']:.3g}\n"
+            f"\n"
+            f"Fixed Parameters:\n"
+            f"\tNumber of Tasks: {self.config.num_tasks}\n"
+            f"\tBlue Team Budget: {self.config.blue_team_budget_fraction:.3g}\n"
+            f"\tRed Team AUC-ROC: {auc_roc:.3g}\n"
             f"\n"
             f"{border}"
         )
@@ -377,6 +391,18 @@ def build_roc_inverse_interpolator(
             fpr_result = fpr_flat.reshape(original_shape)
             return tpr_result, fpr_result
 
+    x_points = np.linspace(0, 1, 100)
+    tpr, fpr = inverse_interpolate(x_points)  # type: ignore
+    auc_roc = float(np.trapezoid(tpr, fpr))
+
+    docstring = inverse_interpolate.__doc__
+    docstring = (
+        f"{docstring}"
+        f"\n\nAUC-ROC of this ROC curve is {auc_roc:.3g}"
+        f"\n\n<auc_roc>{auc_roc}</auc_roc>"
+    )
+    inverse_interpolate.__doc__ = docstring
+
     return inverse_interpolate
 
 
@@ -626,3 +652,25 @@ def auc_roc_from_label_counts(confusion_matrix: Dict[str, int]) -> float:
     auc_roc = float(stats.norm.cdf(separation / np.sqrt(2)))
 
     return auc_roc
+
+
+def get_assessment(score: float) -> str:
+    """Get a score assessment."""
+    if score < 0.25:
+        return "What kinda score is that bro we are gonna die."
+
+    if score < 0.5:
+        return "This is exactly what Yudkowsky warned us about."
+
+    if score < 0.75:
+        return "Marc Andreessen would probably deploy that."
+
+    if score < 0.9:
+        return "Maybe we can show this protocol to Buck."
+
+    if score < 0.99:
+        return "NeurIPS here we come!"
+
+    return (
+        "Did you solve AI Control or did you just use a dumb model, what happened here?"
+    )
