@@ -61,12 +61,15 @@ def honeypot_policy_builder(model: str) -> Any:
     )
 
 
-def untrusted_monitor_builder(model: str) -> Any:
+def untrusted_monitor_builder(model: str, score_field: str) -> Any:
     return policy_gate(
-        honest=basic_monitor(model=model, prompt=honest_monitor_prompt),
+        honest=basic_monitor(
+            model=model, prompt=honest_monitor_prompt, score_field=score_field
+        ),
         attack=basic_monitor(
             model=model,
             prompt=attack_monitor_prompt,
             collusion_strategy=collusion_strategy_prompt,
+            score_field=score_field,
         ),
     )
