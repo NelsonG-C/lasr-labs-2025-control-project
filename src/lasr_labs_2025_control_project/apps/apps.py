@@ -13,7 +13,6 @@ from lasr_labs_2025_control_project.apps.policies.honest_policy import (
     honest_policy,
 )
 from lasr_labs_2025_control_project.apps.prompts import (
-    collusion_strategy,
     honest_monitor_prompt,
     honest_policy_prompt,
     monitor_self_rec_collusion_strategy,
@@ -33,6 +32,7 @@ from lasr_labs_2025_control_project.utils.setting import (
 untrusted_model = "openai/gpt-4o"
 attack_policy_prompt = self_rec_attack_policy_prompt
 attack_monitor_prompt = self_rec_attack_monitor_prompt
+collusion_strategy_prompt = monitor_self_rec_collusion_strategy
 
 apps_setting = AppsSetting(
     dataset_name="simple",
@@ -48,7 +48,7 @@ untrusted_policy_builder = policy_gate(
     attack=attack_policy(
         model=untrusted_model,
         prompt=attack_policy_prompt,
-        collusion_strategy=collusion_strategy,
+        collusion_strategy=collusion_strategy_prompt,
         ephemeral_reminder=False,
     ),
 )
@@ -58,7 +58,7 @@ untrusted_monitor_builder = policy_gate(
     attack=basic_monitor(
         model=untrusted_model,
         prompt=attack_monitor_prompt,
-        collusion_strategy=monitor_self_rec_collusion_strategy,
+        collusion_strategy=collusion_strategy_prompt,
     ),
 )
 

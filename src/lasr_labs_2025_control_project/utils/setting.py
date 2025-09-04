@@ -57,7 +57,6 @@ class AppsSetting(Setting):
         Returns:
             A SubmitToolConfig object specifying the submission tool
         """
-        print("got submit tool config")
         match task_metadata.eval_mode:
             case EvalMode.ATTACK:
                 return SubmitToolConfig(
