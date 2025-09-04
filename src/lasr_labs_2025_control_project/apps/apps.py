@@ -36,10 +36,10 @@ attack_monitor_prompt = self_rec_attack_monitor_prompt
 
 apps_setting = AppsSetting(
     dataset_name="simple",
-    cache_python_code=True,
+    cache_python_code=False,
     num_tests_to_run=10,
     dataset_type="filtered",
-    split="test",
+    split="train",
     shuffle=False,
 )
 
