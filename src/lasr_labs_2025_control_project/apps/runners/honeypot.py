@@ -12,11 +12,14 @@ from lasr_labs_2025_control_project.apps.protocols.untrusted_monitoring_protocol
     untrusted_monitoring_protocol,
 )
 
+untrusted_model = "openai/gpt-4.1"
+trusted_model = "openai/gpt-4o-mini"
+
 apps_task = get_control_task_product(
     settings=apps_setting,
     protocols=untrusted_monitoring_protocol(
-        policy_builder=honeypot_policy_builder,
-        monitor_builder=untrusted_monitor_builder,
+        policy_builder=honeypot_policy_builder(model=trusted_model),
+        monitor_builder=untrusted_monitor_builder(model=untrusted_model),
     ),
     modes=[EvalMode.ATTACK],
     monitoring_scorers=[max_suspicion_scorer()],
