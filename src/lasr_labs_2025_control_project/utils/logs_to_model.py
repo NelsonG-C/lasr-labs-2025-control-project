@@ -18,11 +18,9 @@ def row_filter(row: Any) -> bool:
             return False
 
         score_data = row["score_apps_scorer"]
-        print(f"score_data: {score_data}")
 
         # Handle case where score_data might be a string representation of a dict
         if isinstance(score_data, str):
-            print("score_data is a string")
             import ast
 
             try:
@@ -84,29 +82,17 @@ def _extract_scores_from_df(
     return new_df
 
 
-def data_into_pipeline() -> Any:
+def runner():
     tpr_file_path = Path(
         "src/lasr_labs_2025_control_project/apps/results/logs/examples/2025-09-04T16-17-35+01-00_apps-untrusted-monitoring-protocol-attack-e77f75e1_W5ckoER4zGatBwwhxf37qW.eval"
     )
     fpr_file_path = Path(
         "src/lasr_labs_2025_control_project/apps/results/logs/examples/2025-09-04T15-25-30+01-00_apps-untrusted-monitoring-protocol-attack-f9dcd062_cwPTp6GjX9prAWm2JpResx.eval"
     )
-    return {
-        "tpr_scores": get_scores_from_path(tpr_file_path),
-        "fpr_scores": get_scores_from_path(fpr_file_path),
-    }
 
+    tpr_scores = get_scores_from_path(tpr_file_path)["Score"].tolist()
+    fpr_scores = get_scores_from_path(fpr_file_path)["Score"].tolist()
 
-def runner():
-    data = data_into_pipeline()
-    tpr_scores = data["tpr_scores"]
-    fpr_scores = data["fpr_scores"]
-
-    print("True Positive Rates (TPR) Scores:")
-    print(tpr_scores)
-
-    print("\nFalse Positive Rates (FPR) Scores:")
-    print(fpr_scores)
     config = utils.build_optimization_config(
         num_tasks=5000,
         blue_team_budget_fraction=0.02,
@@ -117,7 +103,6 @@ def runner():
         max_iterations=100,
         grid_squares_per_iteration=10,
     )
-    print(result)
     data = {"GPT-4.1 (Base)": result}
     plot_safety_usefulness_curves(
         data_dict=data, save_path="src/lasr_labs_2025_control_project/apps/results/"
