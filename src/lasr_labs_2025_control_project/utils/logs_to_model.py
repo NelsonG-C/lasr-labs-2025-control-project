@@ -6,6 +6,9 @@ import pandas as pd
 from inspect_ai.analysis import samples_df
 
 from lasr_labs_2025_control_project.numerical_pipeline import utils
+from lasr_labs_2025_control_project.numerical_pipeline.visualization import (
+    plot_safety_usefulness_curves,
+)
 
 
 def row_filter(row: Any) -> bool:
@@ -107,8 +110,7 @@ def runner():
     config = utils.build_optimization_config(
         num_tasks=5000,
         blue_team_budget_fraction=0.02,
-        positive_scores=tpr_scores,
-        negative_scores=fpr_scores,
+        red_team_scores={"positive": tpr_scores, "negative": fpr_scores},
     )
     result = utils.optimize_parameters(
         config=config,
@@ -116,6 +118,10 @@ def runner():
         grid_squares_per_iteration=10,
     )
     print(result)
+    data = {"GPT-4.1 (Base)": result}
+    plot_safety_usefulness_curves(
+        data_dict=data, save_path="src/lasr_labs_2025_control_project/apps/results/"
+    )
 
 
 if __name__ == "__main__":
