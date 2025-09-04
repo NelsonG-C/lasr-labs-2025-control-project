@@ -23,10 +23,14 @@ from lasr_labs_2025_control_project.utils.setting import (
     AppsSetting,
 )
 
+# definitions of the prompts we use
+# Assign the prompts from the file here to pass into their respective builders
 attack_policy_prompt = self_rec_attack_policy_prompt
 attack_monitor_prompt = self_rec_attack_monitor_prompt
 collusion_strategy_prompt = monitor_self_rec_collusion_strategy
 
+# Setting for the experiments
+# Use train set for quick iteration, switch to validation or test for final runs
 apps_setting = AppsSetting(
     dataset_name="simple",
     cache_python_code=False,
@@ -37,6 +41,7 @@ apps_setting = AppsSetting(
 )
 
 
+# Policies
 def untrusted_policy_builder(model: str) -> Any:
     return policy_gate(
         honest=honest_policy(model=model, prompt=honest_policy_prompt),
@@ -61,6 +66,7 @@ def honeypot_policy_builder(model: str) -> Any:
     )
 
 
+# Monitors
 def untrusted_monitor_builder(model: str, score_field: str) -> Any:
     return policy_gate(
         honest=basic_monitor(

@@ -26,7 +26,7 @@ apps_task = get_control_task_product(
     ),
     modes=[EvalMode.ATTACK],
     monitoring_scorers=[max_confidence_scorer()],
-    eval_config=ControlEvalConfig(untrusted_model=untrusted_model, system_prompt=""),
+    eval_config=ControlEvalConfig(untrusted_model=untrusted_model),
 )
 
 eval = eval(tasks=apps_task, limit=1)

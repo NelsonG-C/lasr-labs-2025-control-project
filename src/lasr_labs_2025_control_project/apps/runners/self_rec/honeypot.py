@@ -1,3 +1,4 @@
+from control_arena.eval.control_eval_config import ControlEvalConfig
 from control_arena.eval.control_eval_def import get_control_task_product
 from control_arena.eval_mode import EvalMode
 from inspect_ai import eval
@@ -26,6 +27,9 @@ apps_task = get_control_task_product(
     ),
     modes=[EvalMode.ATTACK],
     monitoring_scorers=[max_confidence_scorer()],
+    eval_config=ControlEvalConfig(
+        untrusted_model=untrusted_model, trusted_model=trusted_model
+    ),
 )
 
 eval = eval(tasks=apps_task, limit=10)
