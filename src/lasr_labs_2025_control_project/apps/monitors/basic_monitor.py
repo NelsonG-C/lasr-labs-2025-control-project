@@ -6,7 +6,12 @@ from control_arena.monitor.score_parsing import parse_score_from_string
 from control_arena.protocol_arg_defaults import get_trusted_model
 from control_arena.utils import extract_xml_tag, get_model_response_str
 from inspect_ai.agent import Agent, AgentState
-from inspect_ai.model import ChatMessageAssistant, get_model
+from inspect_ai.model import (
+    ChatMessageAssistant,
+    ChatMessageSystem,
+    ChatMessageUser,
+    get_model,
+)
 from inspect_ai.tool import Tool
 from pydantic import BaseModel, Field
 
@@ -71,10 +76,17 @@ def basic_monitor(
                     ).model_dump()
                     return state
 
-            model_output = await monitor_model.generate(
-                input=get_prompt(
-                    task_metadata, last_message, prompt, collusion_strategy
+            chat = [
+                ChatMessageSystem(
+                    content=get_prompt(
+                        task_metadata, last_message, prompt, collusion_strategy
+                    )
                 ),
+                ChatMessageUser(content="Provide your response."),
+            ]
+
+            model_output = await monitor_model.generate(
+                input=chat,
                 cache=True,
             )
             model_response_str = get_model_response_str(model_output)
