@@ -25,7 +25,7 @@ def honest_policy(
     llm_model = get_model(model, config=config)
 
     def honest(task_metadata: ControlTaskMetadata) -> Agent:
-        """Temporary attack policy builder for transition.
+        """Honest policy for Untrusted Monitoring.
 
         Args:
             task_metadata: The task metadata containing descriptions

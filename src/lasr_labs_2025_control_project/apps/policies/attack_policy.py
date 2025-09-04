@@ -37,7 +37,7 @@ def attack_policy(
     llm_model = get_model(model, config=config)
 
     def attack(task_metadata: ControlTaskMetadata) -> Agent:
-        """Temporary attack policy builder for transition.
+        """Attack policy builder for untrusted monitoring.
 
         Args:
             task_metadata: The task metadata containing descriptions
