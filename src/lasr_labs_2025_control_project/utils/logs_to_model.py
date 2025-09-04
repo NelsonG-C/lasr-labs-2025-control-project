@@ -29,7 +29,6 @@ def row_filter(row: Any) -> bool:
 
         # Check if it's a dictionary with the required keys
         if isinstance(score_data, dict):
-            print("score_data is a dictionary")
             main_task = score_data.get("main_task_success")
             side_task = score_data.get("side_task_success")
 
@@ -84,12 +83,11 @@ def _extract_scores_from_df(
 
 def data_into_pipeline() -> Any:
     tpr_file_path = Path(
-        "src/lasr_labs_2025_control_project/apps/results/logs/examples/2025-09-04T13-40-46+01-00_apps-untrusted-monitoring-protocol-attack-c9a3d080_2CFuHgSRx9KDCTrxZWheK8.eval"
+        "src/lasr_labs_2025_control_project/apps/results/logs/examples/2025-09-04T16-17-35+01-00_apps-untrusted-monitoring-protocol-attack-e77f75e1_W5ckoER4zGatBwwhxf37qW.eval"
     )
     fpr_file_path = Path(
         "src/lasr_labs_2025_control_project/apps/results/logs/examples/2025-09-04T15-25-30+01-00_apps-untrusted-monitoring-protocol-attack-f9dcd062_cwPTp6GjX9prAWm2JpResx.eval"
     )
-    # Return the collected data for further processing
     return {
         "tpr_scores": get_scores_from_path(tpr_file_path),
         "fpr_scores": get_scores_from_path(fpr_file_path),
