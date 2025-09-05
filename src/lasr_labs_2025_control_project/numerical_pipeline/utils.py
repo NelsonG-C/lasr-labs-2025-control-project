@@ -25,8 +25,9 @@ class OptimizationConfig:
     blue_team_win_calculator: Callable[[Dict[str, np.ndarray]], np.ndarray]
 
     # Optional data for reference
-    red_team_tpr_values: Optional[List[float]] = None
-    red_team_fpr_values: Optional[List[float]] = None
+    red_team_positive_rate_values: Optional[Dict[str, List[float]]] = None
+    red_team_confidence_scores: Optional[Dict[str, List[float]]] = None
+    red_team_confusion_matrix: Optional[Dict[str, int]] = None
 
     def __repr__(self):
         return (
@@ -127,8 +128,11 @@ def build_optimization_config(
         tpr_values, fpr_values = generate_tpr_and_fpr_values(red_team_auc_roc)
     elif red_team_confusion_matrix is not None:
         # Method 4: Generate from tp, fp, tn, fn counts
-        auc_roc = auc_roc_from_label_counts(red_team_confusion_matrix)
+        auc_roc, red_team_positive_rate_values = auc_roc_from_confusion_matrix(
+            red_team_confusion_matrix
+        )
         tpr_values, fpr_values = generate_tpr_and_fpr_values(auc_roc)
+        # In this case, we have one score
     else:
         raise ValueError(
             "Must provide either: "
@@ -154,8 +158,8 @@ def build_optimization_config(
         blue_team_budget_fraction=blue_team_budget_fraction,
         red_team_roc_fn=red_team_roc_fn,
         blue_team_win_calculator=blue_team_win_calculator,
-        red_team_tpr_values=tpr_values,
-        red_team_fpr_values=fpr_values,
+        red_team_positive_rate_values=red_team_positive_rate_values,
+        red_team_confusion_matrix=red_team_confusion_matrix,
     )
 
 
@@ -616,7 +620,9 @@ def calculate_tpr_fpr_from_scores(
     return tpr_values, fpr_values
 
 
-def auc_roc_from_label_counts(confusion_matrix: Dict[str, int]) -> float:
+def auc_roc_from_confusion_matrix(
+    confusion_matrix: Dict[str, int],
+) -> Tuple[float, Dict[str, List[float]]]:
     """Calculate AUC-ROC from label counts.
 
     Args:
@@ -634,16 +640,14 @@ def auc_roc_from_label_counts(confusion_matrix: Dict[str, int]) -> float:
     fn = confusion_matrix.get("fn", 0)
 
     # Calculate separation of gaussians with this distribution
-    p_class_1_negative = tn / (tn + fp) if (tn + fp) > 0 else 0.0
-    p_class_2_positive = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+    tnr = tn / (tn + fp) if (tn + fp) > 0 else 0.0
+    tpr = tp / (tp + fn) if (tp + fn) > 0 else 0.0
 
-    assert p_class_1_negative + p_class_2_positive > 1.0, (
-        "Your classifier is worse than useless!"
-    )
+    assert tnr + tpr > 1.0, "Your classifier is worse than useless!"
     # Inverse gaussian CDF on both probabilities
     # Inverse gaussian CDF on both probabilities
-    threshold_negative = stats.norm.ppf(p_class_1_negative)
-    threshold_positive = stats.norm.ppf(p_class_2_positive)
+    threshold_negative = stats.norm.ppf(tnr)
+    threshold_positive = stats.norm.ppf(tpr)
 
     # Calculate separation between the distributions
     separation = threshold_positive + threshold_negative
@@ -651,7 +655,7 @@ def auc_roc_from_label_counts(confusion_matrix: Dict[str, int]) -> float:
     # Calculate AUC-ROC from separation (using the inverse of the formula in generate_tpr_and_fpr_values)
     auc_roc = float(stats.norm.cdf(separation / np.sqrt(2)))
 
-    return auc_roc
+    return auc_roc, {"tpr": [tpr], "fpr": [1 - tnr]}
 
 
 def get_assessment(score: float) -> str:
