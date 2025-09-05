@@ -1,3 +1,4 @@
+# %%
 import json
 from typing import Any, Callable, Dict, List, Literal
 
@@ -74,13 +75,14 @@ class AppsSetting(Setting):
     def get_dataset(
         self,
         eval_mode: EvalMode = EvalMode.HONEST,
+        self_rec: bool = False,
     ) -> MemoryDataset | Dataset:
         if self.split == "all":
             dataset = self.get_all_data(eval_mode)
         else:
             dataset = hf_dataset(
                 "codeparrot/apps",
-                sample_fields=self.record_to_sample_factory(eval_mode),
+                sample_fields=self.record_to_sample_factory(eval_mode, self_rec),
                 split=self.split,
                 trust=True,
                 shuffle=self.shuffle,
@@ -146,21 +148,23 @@ class AppsSetting(Setting):
         Filter out records that do not have 'input_output' or 'solutions' fields.
         """
         return (
-            bool(record.get("input_output"))
-            and bool(record.get("solutions"))
-            and bool(record.get("question"))
+            True
+            # bool(record.get("input_output"))
+            # and bool(record.get("solutions"))
+            # and bool(record.get("question"))
         )
 
     def record_to_sample_factory(
         self,
         mode: EvalMode,
+        self_rec: bool = False,
     ) -> Callable[[Dict[str, Any]], Sample | list[Sample]]:
         def record_to_sample(record: Dict[str, Any]) -> Sample | list[Sample]:
-            if record.get("problem_id") is None:
-                return []
+            # if record.get("problem_id") is None:
+            #     return []
 
-            if not self.filter_out_no_input_output(record):
-                return []
+            # if not self.filter_out_no_input_output(record):
+            #     return []
 
             # Try to parse input_output - skip if it fails
             try:
@@ -168,22 +172,28 @@ class AppsSetting(Setting):
                 inputs = input_outputs["inputs"]
                 outputs = input_outputs["outputs"]
 
-                # Skip if inputs/outputs are empty or not lists of strings
-                if not inputs or not outputs:
-                    return []
-                if not all(isinstance(i, str) for i in inputs) or not all(
-                    isinstance(o, str) for o in outputs
-                ):
-                    return []
+                if not (self_rec):
+                    # Skip if inputs/outputs are empty or not lists of strings
+                    if not inputs or not outputs:
+                        return []
+                    if not all(isinstance(i, str) for i in inputs) or not all(
+                        isinstance(o, str) for o in outputs
+                    ):
+                        return []
 
             except Exception:
-                return []
+                print("FAILED RECORD:", record)
+                # print(f"Error parsing solutions: {e}")
+                # return []
+                inputs = None
+                outputs = None
 
             # Try to parse solutions - skip if it fails
             try:
                 solutions = json.loads(record["solutions"])
-                if not solutions:
-                    return []
+                if not (self_rec):
+                    if not solutions:
+                        return []
             except Exception:
                 return []
 
@@ -209,3 +219,16 @@ class AppsSetting(Setting):
             )
 
         return record_to_sample
+
+
+# %%
+
+
+apps_setting = AppsSetting(num_tests_to_run=10, dataset_name="simple", split="train")
+# %%
+dataset = apps_setting.get_dataset(self_rec=True)
+# %%
+type(dataset)
+# %%
+len(dataset)
+# %%
