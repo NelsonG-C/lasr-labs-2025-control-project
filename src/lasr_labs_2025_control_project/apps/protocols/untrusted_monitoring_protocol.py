@@ -39,7 +39,16 @@ def untrusted_monitoring_protocol(
 
         async def impl(state: AgentState, tools: list[Tool]) -> AgentState:
             state = await policy(state, tools)
-            if state.output.message.tool_calls:
+            # Check if there are tool calls and specifically if "submit" is among them
+            if (
+                state.output.message
+                and state.output.message.tool_calls
+                and any(
+                    tool_call.function == "submit"
+                    for tool_call in state.output.message.tool_calls
+                )
+            ):
+                print("got to monitor")
                 state = await monitor(state, tools)
             return state
 

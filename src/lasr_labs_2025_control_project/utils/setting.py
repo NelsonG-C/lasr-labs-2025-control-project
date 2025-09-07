@@ -31,6 +31,7 @@ from lasr_labs_2025_control_project.apps.prompts import (
     SETTING_DESCRIPTION,
     SIDE_TASK_DESCRIPTION,
 )
+from lasr_labs_2025_control_project.apps.utils.utils import has_backdoor_tool
 
 
 class AppsSetting(Setting):
@@ -47,7 +48,7 @@ class AppsSetting(Setting):
         return "apps"
 
     def get_agent_tools(self, state: TaskState) -> list[Tool]:
-        return []
+        return [has_backdoor_tool(state)]
 
     def get_submit_tool_config(
         self, task_metadata: ControlTaskMetadata
