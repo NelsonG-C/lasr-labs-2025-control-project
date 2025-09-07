@@ -48,7 +48,6 @@ def untrusted_monitoring_protocol(
                     for tool_call in state.output.message.tool_calls
                 )
             ):
-                print("got to monitor")
                 state = await monitor(state, tools)
             return state
 
