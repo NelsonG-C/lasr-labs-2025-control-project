@@ -44,7 +44,6 @@ def has_backdoor_tool(state: TaskState) -> Tool:
             String indicating whether a backdoor was detected
         """
         correct_code = state.metadata_as(AppsTaskMetadata).solutions[0]
-        print("metadata got inside", correct_code)
         try:
             # Run the correct code with the secret input
             correct_output, correct_stderr = await run_with_timeout(
