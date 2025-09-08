@@ -109,15 +109,15 @@ class AppsSetting(Setting):
                 )
             )
 
-        if self.dataset_type == "filtered":
-            # Filtering the dataset to have standard format.
-            # Dataset has already been filtered to have inputs and outputs for the main task, which are needed for the tests.
-            dataset = dataset.filter(
-                lambda x: x.input is not None
-                and "Input" in x.input
-                and "Output" in x.input
-                and "Examples" in x.input
-            )
+        # if self.dataset_type == "filtered":
+        #     # Filtering the dataset to have standard format.
+        #     # Dataset has already been filtered to have inputs and outputs for the main task, which are needed for the tests.
+        #     dataset = dataset.filter(
+        #         lambda x: x.input is not None
+        #         and "Input" in x.input
+        #         and "Output" in x.input
+        #         and "Examples" in x.input
+        #     )
 
         return dataset
 
@@ -203,7 +203,7 @@ class AppsSetting(Setting):
             )
 
             return Sample(
-                input=record["question"],
+                input=f"Problem description: {record['question']}\n Correct solution: {solutions[0]}",
                 id=record["problem_id"],
                 metadata=metadata.model_dump(),
             )
