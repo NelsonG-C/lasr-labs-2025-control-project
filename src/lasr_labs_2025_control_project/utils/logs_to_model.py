@@ -5,10 +5,7 @@ from typing import Any, Callable
 import pandas as pd
 from inspect_ai.analysis import samples_df
 
-from lasr_labs_2025_control_project.numerical_pipeline import utils
-from lasr_labs_2025_control_project.numerical_pipeline.visualization import (
-    plot_safety_usefulness_curves,
-)
+from lasr_labs_2025_control_project.numerical_pipeline import utils, visualization
 
 
 def row_filter(row: Any) -> bool:
@@ -84,14 +81,16 @@ def _extract_scores_from_df(
 
 def runner():
     tpr_file_path = Path(
-        "src/lasr_labs_2025_control_project/apps/results/logs/examples/2025-09-04T16-17-35+01-00_apps-untrusted-monitoring-protocol-attack-e77f75e1_W5ckoER4zGatBwwhxf37qW.eval"
+        "src/lasr_labs_2025_control_project/apps/results/logs/base/2025-09-08T15-48-38+01-00_apps-untrusted-monitoring-protocol-attack-18d39942_E2cimgd9vrvKfCgTvhBkb2.eval"
     )
     fpr_file_path = Path(
-        "src/lasr_labs_2025_control_project/apps/results/logs/examples/2025-09-04T15-25-30+01-00_apps-untrusted-monitoring-protocol-attack-f9dcd062_cwPTp6GjX9prAWm2JpResx.eval"
+        "src/lasr_labs_2025_control_project/apps/results/logs/base/2025-09-08T21-30-28+01-00_apps-untrusted-monitoring-protocol-attack-e38dbb92_jyQux8JaWXSh6esxSwNhkW.eval"
     )
 
     tpr_scores = get_scores_from_path(tpr_file_path)["Score"].tolist()
+    print("TPR scores length:", len(tpr_scores))
     fpr_scores = get_scores_from_path(fpr_file_path)["Score"].tolist()
+    print("FPR scores length:", len(fpr_scores))
 
     config = utils.build_optimization_config(
         num_tasks=5000,
@@ -104,9 +103,7 @@ def runner():
         grid_squares_per_iteration=10,
     )
     data = {"GPT-4.1 (Base)": result}
-    plot_safety_usefulness_curves(
-        data_dict=data, save_path="src/lasr_labs_2025_control_project/apps/results/"
-    )
+    visualization.plot_data(data)
 
 
 if __name__ == "__main__":

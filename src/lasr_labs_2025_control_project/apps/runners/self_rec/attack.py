@@ -28,5 +28,5 @@ apps_task = get_control_task_product(
     monitoring_scorers=[max_confidence_scorer()],
     eval_config=ControlEvalConfig(untrusted_model=untrusted_model),
 )
-n = 1
+n = 2
 eval = eval(tasks=apps_task, epochs=Epochs(n, [f"pass_at_{n}"]), limit=20)

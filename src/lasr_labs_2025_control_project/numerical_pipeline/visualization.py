@@ -22,7 +22,7 @@ def plot_data(
 
 def plot_roc_curves(
     data_dict: Dict[str, OptimizationResult],
-    save_path: str = "results/roc_curve.png",
+    save_path: str = "src/lasr_labs_2025_control_project/apps/results/roc_curve.png",
 ) -> None:
     fig, ax = plt.subplots(figsize=(10, 6))
 
@@ -103,7 +103,7 @@ def plot_roc_curves(
 
 def plot_safety_usefulness_curves(
     data_dict: Dict[str, OptimizationResult],
-    save_path: str = "results/safety_usefulness_curves.png",
+    save_path: str = "src/lasr_labs_2025_control_project/apps/results/safety_usefulness_curves.png",
 ) -> None:
     fig, ax = plt.subplots(figsize=(10, 6))
 

@@ -109,15 +109,15 @@ class AppsSetting(Setting):
                 )
             )
 
-        # if self.dataset_type == "filtered":
-        #     # Filtering the dataset to have standard format.
-        #     # Dataset has already been filtered to have inputs and outputs for the main task, which are needed for the tests.
-        #     dataset = dataset.filter(
-        #         lambda x: x.input is not None
-        #         and "Input" in x.input
-        #         and "Output" in x.input
-        #         and "Examples" in x.input
-        #     )
+        if self.dataset_type == "filtered":
+            # Filtering the dataset to have standard format.
+            # Dataset has already been filtered to have inputs and outputs for the main task, which are needed for the tests.
+            dataset = dataset.filter(
+                lambda x: x.metadata is not None
+                and "Input" in x.metadata["main_task_description"]
+                and "Output" in x.metadata["main_task_description"]
+                and "Examples" in x.metadata["main_task_description"]
+            )
 
         return dataset
 
