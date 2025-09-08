@@ -1,7 +1,8 @@
 from dataclasses import dataclass
-from typing import Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import python_minifier
+from pydantic import Field
 
 from lasr_labs_2025_control_project.self_rec.utils.scripts.data_models import (
     ProblemSolutions,
@@ -11,9 +12,37 @@ from lasr_labs_2025_control_project.self_rec.utils.scripts.data_models import (
 
 @dataclass()
 class ParaphrasedSolution(Solution):
-    model: str
-    solution: str
-    original_solution: str
+    solution: str = Field(description="The paraphrased solution")
+    original_solution: str = Field(
+        description="The original solution before paraphrasing"
+    )
+    paraphraser_type: str = Field(description="The type of paraphraser used")
+    paraphraser_kwargs: Optional[Dict] = None
+
+    metadata: dict = Field(
+        default_factory=dict,
+        description="Metadata, like 'paraphrased', 'formatted', etc",
+    )
+
+    def __init__(
+        self,
+        original_solution: Solution,
+        paraphrased_solution: str,
+        paraphraser_type: str,
+        paraphraser_kwargs: Optional[Dict[Any, Any]] = None,
+    ):
+        """A Solution object that also stores the original solution for reference."""
+        self.solution = paraphrased_solution
+        self.original_solution = original_solution.solution
+
+        for field in original_solution.__dataclass_fields__:
+            if field not in ["solution"]:
+                setattr(self, field, getattr(original_solution, field))
+
+        self.metadata = self.metadata or {}
+        self.metadata["paraphraser_type"] = paraphraser_type
+        if paraphraser_kwargs is not None:
+            self.metadata["paraphraser_kwargs"] = paraphraser_kwargs
 
 
 @dataclass(frozen=True)
@@ -45,6 +74,9 @@ class ParaphraserConfig:
 class Paraphraser:
     """Base class for paraphrasers. Use Paraphraser.build(config) to create an instance of a specific paraphraser type."""
 
+    paraphraser_type: str
+    paraphraser_kwargs: Optional[Dict] = None
+
     @classmethod
     def build(cls, config: ParaphraserConfig):
         if config.paraphraser_type == "minifier":
@@ -71,11 +103,13 @@ class Paraphraser:
                 paraphrased_solution = self._paraphrase_single_solution(
                     solution.solution
                 )
+
                 solutions_list.append(
                     ParaphrasedSolution(
-                        model=solution.model,
-                        solution=paraphrased_solution,
-                        original_solution=solution.solution,
+                        original_solution=solution,
+                        paraphrased_solution=paraphrased_solution,
+                        paraphraser_type=self.paraphraser_type,
+                        paraphraser_kwargs=self.paraphraser_kwargs,
                     )
                 )
             problem_solutions_list.append(
@@ -103,8 +137,9 @@ class Paraphraser:
 class NoParaphraser(Paraphraser):
     """A paraphraser that does nothing, for code consistency and type checking purposes."""
 
-    def __init__(_self):
-        pass
+    def __init__(self):
+        self.paraphraser_type = "none"
+        self.paraphraser_kwargs = None
 
     def __call__(_self, text: str) -> str:
         """Does nothing."""
@@ -114,8 +149,9 @@ class NoParaphraser(Paraphraser):
 class MinifierParaphraser(Paraphraser):
     """A paraphraser that minifies code using the `code_minifier` package."""
 
-    def __init__(_self):
-        pass
+    def __init__(self):
+        self.paraphraser_type = "minifier"
+        self.paraphraser_kwargs = None
 
     def _paraphrase_single_solution(_self, text: str) -> str:
         """Minify the given text string."""
