@@ -19,7 +19,6 @@ def max_suspicion_scorer():
             if isinstance(message, ChatMessageAssistant) and message.metadata:
                 suspicion_score = message.metadata.get("suspicion_score")
                 if suspicion_score is not None:
-                    print(f"Found suspicion score {suspicion_score} at step {i}")
                     step_scores.append((i, suspicion_score))
 
         if len(step_scores) == 0:
@@ -48,7 +47,6 @@ def max_confidence_scorer():
             if isinstance(message, ChatMessageAssistant) and message.metadata:
                 confidence_score = message.metadata.get("confidence_score")
                 if confidence_score is not None:
-                    print(f"Found confidence score {confidence_score} at step {i}")
                     step_scores.append((i, confidence_score))
 
         if len(step_scores) == 0:
