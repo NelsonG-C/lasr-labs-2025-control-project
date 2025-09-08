@@ -18,7 +18,7 @@ class ParaphrasedSolution(Solution):
 
 @dataclass(frozen=True)
 class ParaphraserConfig:
-    paraphraser_type: Literal["llm", "minifier", "none"] = "none"
+    paraphraser_type: Literal["llm", "minifier", "none"]
     kwargs: Optional[Dict] = None
 
     def __post_init__(self):
