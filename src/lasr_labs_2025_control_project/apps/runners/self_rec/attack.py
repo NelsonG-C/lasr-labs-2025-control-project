@@ -1,7 +1,7 @@
 from control_arena.eval.control_eval_config import ControlEvalConfig
 from control_arena.eval.control_eval_def import get_control_task_product
 from control_arena.eval_mode import EvalMode
-from inspect_ai import eval
+from inspect_ai import Epochs, eval
 
 from lasr_labs_2025_control_project.apps.apps import (
     apps_setting,
@@ -28,5 +28,5 @@ apps_task = get_control_task_product(
     monitoring_scorers=[max_confidence_scorer()],
     eval_config=ControlEvalConfig(untrusted_model=untrusted_model),
 )
-
-eval = eval(tasks=apps_task, limit=1)
+n = 2
+eval = eval(tasks=apps_task, epochs=Epochs(n, [f"pass_at_{n}"]))

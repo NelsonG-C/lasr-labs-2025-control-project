@@ -10,6 +10,7 @@ from lasr_labs_2025_control_project.apps.policies.honest_policy import (
     honest_policy,
 )
 from lasr_labs_2025_control_project.apps.prompts import (
+    attack_self_rec_collusion_strategy,
     honest_monitor_prompt,
     honest_policy_prompt,
     monitor_self_rec_collusion_strategy,
@@ -36,8 +37,9 @@ apps_setting = AppsSetting(
     cache_python_code=False,
     num_tests_to_run=10,
     dataset_type="filtered",
-    split="train",
+    split="test",
     shuffle=False,
+    problem_ids_range=[4000, 4999],
 )
 
 
@@ -48,7 +50,7 @@ def untrusted_policy_builder(model: str) -> Any:
         attack=attack_policy(
             model=model,
             prompt=attack_policy_prompt,
-            collusion_strategy=collusion_strategy_prompt,
+            collusion_strategy=attack_self_rec_collusion_strategy,
             ephemeral_reminder=False,
         ),
     )
@@ -60,7 +62,7 @@ def honeypot_policy_builder(model: str) -> Any:
         attack=attack_policy(
             model=model,
             prompt=attack_policy_prompt,
-            collusion_strategy=collusion_strategy_prompt,
+            collusion_strategy=attack_self_rec_collusion_strategy,
             ephemeral_reminder=False,
         ),
     )

@@ -1,7 +1,7 @@
 from control_arena.eval.control_eval_config import ControlEvalConfig
 from control_arena.eval.control_eval_def import get_control_task_product
 from control_arena.eval_mode import EvalMode
-from inspect_ai import eval
+from inspect_ai import Epochs, eval
 
 from lasr_labs_2025_control_project.apps.apps import (
     apps_setting,
@@ -14,7 +14,7 @@ from lasr_labs_2025_control_project.apps.protocols.untrusted_monitoring_protocol
 from lasr_labs_2025_control_project.apps.scorers import max_confidence_scorer
 
 untrusted_model = "openai/gpt-4.1"
-trusted_model = "openai/gpt-4o-mini"
+trusted_model = "openai/gpt-4o"
 score_field = "confidence_score"
 
 apps_task = get_control_task_product(
@@ -32,4 +32,5 @@ apps_task = get_control_task_product(
     ),
 )
 
-eval = eval(tasks=apps_task, limit=10)
+n = 2
+eval = eval(tasks=apps_task, limit=10, epochs=Epochs(n, [f"pass_at_{n}"]))
