@@ -2,10 +2,9 @@ import asyncio
 import re
 from asyncio import run
 from dataclasses import dataclass
-from typing import Any, Coroutine, Dict, List, Literal, Optional, cast
+from typing import Any, Coroutine, Dict, List, cast
 
 import python_minifier
-from pydantic import Field
 
 from lasr_labs_2025_control_project.self_rec.utils.scripts.data_models import (
     ProblemSolutions,
@@ -14,101 +13,89 @@ from lasr_labs_2025_control_project.self_rec.utils.scripts.data_models import (
 from lasr_labs_2025_control_project.utils.model_calling import build_api_caller
 
 
-@dataclass()
-class ParaphrasedSolution(Solution):
-    solution: str = Field(description="The paraphrased solution")
-    original_solution: str = Field(
-        description="The original solution before paraphrasing"
+def build_paraphrased_solution(
+    original_solution: Solution,
+    paraphrased_solution: str,
+    paraphraser_kwargs: Dict[str, str],
+) -> Solution:
+    """Build a Solution with paraphrased content and original solution in metadata."""
+    # Create new metadata that includes the paraphrasing info
+    new_metadata = dict(original_solution.metadata)
+    new_metadata["paraphrased"] = True
+    new_metadata["original_solution"] = original_solution.solution
+    if paraphraser_kwargs is not None:
+        new_metadata["paraphraser_kwargs"] = paraphraser_kwargs
+
+    return Solution(
+        model=original_solution.model,
+        solution=paraphrased_solution,
+        metadata=new_metadata,
     )
-    paraphraser_type: str = Field(description="The type of paraphraser used")
-    paraphraser_kwargs: Optional[Dict] = None
-
-    metadata: dict = Field(
-        default_factory=dict,
-        description="Metadata, like 'paraphrased', 'formatted', etc",
-    )
-
-    def __init__(
-        self,
-        original_solution: Solution,
-        paraphrased_solution: str,
-        paraphraser_type: str,
-        paraphraser_kwargs: Optional[Dict[Any, Any]] = None,
-    ):
-        """A Solution object that also stores the original solution for reference."""
-        self.solution = paraphrased_solution
-        self.original_solution = original_solution.solution
-
-        for field in original_solution.__dataclass_fields__:
-            if field not in ["solution"]:
-                setattr(self, field, getattr(original_solution, field))
-
-        self.metadata = self.metadata or {}
-        self.metadata["paraphraser_type"] = paraphraser_type
-        if paraphraser_kwargs is not None:
-            self.metadata["paraphraser_kwargs"] = paraphraser_kwargs
 
 
 @dataclass(frozen=True)
 class ParaphraserConfig:
-    paraphraser_type: Literal["llm", "minifier", "none"]
-    kwargs: Optional[Dict] = None
+    kwargs: Dict[str, str]
 
     def __post_init__(self):
-        if self.paraphraser_type == "minifier":
+        paraphraser_type = self.kwargs.get("paraphraser_type")
+        if paraphraser_type == "minifier":
             assert self.kwargs is None, "minfier does not take any kwargs"
             return
 
-        if self.paraphraser_type == "llm":
+        if paraphraser_type == "llm":
             assert self.kwargs is not None and set(self.kwargs.keys()) == {
                 "model_name",
             }, "llm paraphraser requires kwargs with keys 'model_name'"
 
             raise NotImplementedError("LLM paraphraser not implemented yet")
 
-        if self.paraphraser_type == "none":
+        if paraphraser_type == "none":
             return
 
-        raise Exception(f"Unknown paraphraser type: {self.paraphraser_type}")
+        raise Exception(f"Unknown paraphraser type: {paraphraser_type}")
 
 
 class Paraphraser:
     """Base class for paraphrasers. Use Paraphraser.build(config) to create an instance of a specific paraphraser type."""
 
-    paraphraser_type: str
-    paraphraser_kwargs: Optional[Dict] = None
-    paraphraser_calling_type: Literal["serial", "parallel", "async"] = "serial"
+    paraphraser_kwargs: Dict[str, str]
 
     @classmethod
     def build(cls, config: ParaphraserConfig):
-        if config.paraphraser_type == "minifier":
+        paraphraser_type = config.kwargs.get("paraphraser_type")
+        if paraphraser_type == "minifier":
             return MinifierParaphraser()
 
-        if config.paraphraser_type == "llm":
+        if paraphraser_type == "llm":
             return LLMParaphraser(
                 model_name=config.kwargs["model_name"],  # type: ignore
             )
 
-        if config.paraphraser_type == "none":
+        if paraphraser_type == "none":
             return NoParaphraser()
 
-        raise Exception(f"Unknown paraphraser type: {config.paraphraser_type}")
+        raise Exception(f"Unknown paraphraser type: {paraphraser_type}")
 
     def __call__(self, solutions: List[ProblemSolutions]) -> List[ProblemSolutions]:
         """Paraphrase the solutions in the given list of ProblemSolutions."""
 
-        if self.paraphraser_calling_type == "parallel":
+        paraphraser_calling_type = self.paraphraser_kwargs.get(
+            "paraphraser_calling_type", "serial"
+        )
+
+        if paraphraser_calling_type == "parallel":
             return self._paraphrase_parallel(solutions)
 
-        if self.paraphraser_calling_type == "serial":
+        if paraphraser_calling_type == "serial":
             return self._paraphrase_serial(solutions)
 
-        if self.paraphraser_calling_type == "async":
+        if paraphraser_calling_type == "async":
             # Bridge async to sync caller context using asyncio.run
             return run(self.paraphrase_async(solutions))
 
         raise NotImplementedError(
-            f"Unknown paraphraser_calling_type: {self.paraphraser_calling_type}"
+            f"Unknown paraphraser_calling_type: {paraphraser_calling_type}"
         )
 
     def _paraphrase_parallel(
@@ -133,10 +120,9 @@ class Paraphraser:
                 )
 
                 solutions_list.append(
-                    ParaphrasedSolution(
+                    build_paraphrased_solution(
                         original_solution=solution,
                         paraphrased_solution=paraphrased_solution,
-                        paraphraser_type=self.paraphraser_type,
                         paraphraser_kwargs=self.paraphraser_kwargs,
                     )
                 )
@@ -184,10 +170,9 @@ class Paraphraser:
                 problem_solutions.solutions, paraphrased_texts
             ):
                 solutions_list.append(
-                    ParaphrasedSolution(
+                    build_paraphrased_solution(
                         original_solution=original,
                         paraphrased_solution=paraphrased,
-                        paraphraser_type=self.paraphraser_type,
                         paraphraser_kwargs=self.paraphraser_kwargs,
                     )
                 )
@@ -214,9 +199,9 @@ class NoParaphraser(Paraphraser):
 
     def __init__(self):
         self.paraphraser_type = "none"
-        self.paraphraser_kwargs = None
+        self.paraphraser_kwargs = {"paraphraser_type": "none"}
 
-    def __call__(_self, text: str) -> str:
+    def _paraphrase_single_solution(_self, text: str) -> str:
         """Does nothing."""
         return text
 
@@ -226,20 +211,36 @@ class MinifierParaphraser(Paraphraser):
 
     def __init__(self):
         self.paraphraser_type = "minifier"
-        self.paraphraser_kwargs = None
+        self.paraphraser_kwargs = {"paraphraser_type": "minifier"}
 
     def _paraphrase_single_solution(_self, text: str) -> str:
         """Minify the given text string."""
 
         text = text.replace("```python\n", "").replace("```", "")
 
-        return python_minifier.minify(text)
+        minified_text = python_minifier.minify(
+            text,
+            remove_literal_statements=True,
+            hoist_literals=True,
+            combine_imports=True,
+            rename_locals=True,
+            rename_globals=True,
+            remove_annotations=True,
+            remove_object_base=True,
+            convert_posargs_to_args=True,
+            remove_asserts=True,
+            remove_debug=True,
+            remove_explicit_return_none=True,
+            constant_folding=True,
+        )
+
+        return minified_text
 
 
 class LLMParaphraser(Paraphraser):
     def __init__(self, model_name: str):
         self.paraphraser_type = "llm"
-        self.paraphraser_kwargs = {"model_name": model_name}
+        self.paraphraser_kwargs = {"model_name": model_name, "paraphraser_type": "llm"}
 
         # Assert regex match for model_name = model_provider/model
         assert type(model_name) is str and re.match(r"^[^/]+/[^/]+$", model_name), (
