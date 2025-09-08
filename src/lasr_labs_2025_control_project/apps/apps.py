@@ -11,11 +11,11 @@ from lasr_labs_2025_control_project.apps.policies.honest_policy import (
 )
 from lasr_labs_2025_control_project.apps.prompts import (
     attack_self_rec_collusion_strategy,
+    backdoor_injection_prompt,
     honest_monitor_prompt,
     honest_policy_prompt,
     monitor_self_rec_collusion_strategy,
     self_rec_attack_monitor_prompt,
-    self_rec_attack_policy_prompt,
 )
 from lasr_labs_2025_control_project.apps.utils.policy_gate import (
     policy_gate,
@@ -26,7 +26,7 @@ from lasr_labs_2025_control_project.utils.setting import (
 
 # definitions of the prompts we use
 # Assign the prompts from the file here to pass into their respective builders
-attack_policy_prompt = self_rec_attack_policy_prompt
+attack_policy_prompt = backdoor_injection_prompt
 attack_monitor_prompt = self_rec_attack_monitor_prompt
 collusion_strategy_prompt = monitor_self_rec_collusion_strategy
 
