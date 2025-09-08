@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Literal, Optional
 
@@ -57,11 +58,8 @@ class ParaphraserConfig:
 
         if self.paraphraser_type == "llm":
             assert self.kwargs is not None and set(self.kwargs.keys()) == {
-                "model_provider",
                 "model_name",
-            }, (
-                "llm paraphraser requires kwargs with keys 'model_provider' and 'model_name'"
-            )
+            }, "llm paraphraser requires kwargs with keys 'model_name'"
 
             raise NotImplementedError("LLM paraphraser not implemented yet")
 
@@ -84,7 +82,6 @@ class Paraphraser:
 
         if config.paraphraser_type == "llm":
             return LLMParaphraser(
-                model_provider=config.kwargs["model_provider"],  # type: ignore
                 model_name=config.kwargs["model_name"],  # type: ignore
             )
 
@@ -156,13 +153,21 @@ class MinifierParaphraser(Paraphraser):
     def _paraphrase_single_solution(_self, text: str) -> str:
         """Minify the given text string."""
 
-        text = text.removeprefix("```")
-        text = text.removeprefix("python")
-        text = text.removesuffix("```")
+        text = text.replace("```python\n", "").replace("```", "")
 
         return python_minifier.minify(text)
 
 
 class LLMParaphraser(Paraphraser):
-    def __init__(self, model_provider: str, model_name: str):
+    def __init__(self, model_name: str):
+        self.paraphraser_type = "llm"
+        self.paraphraser_kwargs = {"model_name": model_name}
+
+        # Assert regex match for model_name = model_provider/model
+        assert type(model_name) is str and re.match(r"^[^/]+/[^/]+$", model_name), (
+            "model_name must be of the form 'model_provider/model'"
+        )
+
+        self.model_provider, self.model_name = model_name.split("/")
+
         raise NotImplementedError("LLM paraphraser not implemented yet")
