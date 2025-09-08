@@ -17,6 +17,7 @@ dependencies = [
     "seaborn>=0.13.2",
     "scikit-learn>=1.7.1",
     "datasets==3.6.0",
+    "python-minifier>=3.0.0",
 ]
 
 [build-system]
