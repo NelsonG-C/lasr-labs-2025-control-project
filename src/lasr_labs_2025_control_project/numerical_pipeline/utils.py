@@ -89,7 +89,7 @@ def build_optimization_config(
     blue_team_budget_fraction: float,
     red_team_auc_roc: Optional[float] = None,
     red_team_positive_rate_values: Optional[Dict[str, List[float]]] = None,
-    red_team_scores: Optional[Dict[str, List[float]]] = None,
+    red_team_confidence_scores: Optional[Dict[str, List[float]]] = None,
     red_team_confusion_matrix: Optional[Dict[str, int]] = None,
 ) -> OptimizationConfig:
     """Build an OptimizationConfig from various input formats.
@@ -115,13 +115,14 @@ def build_optimization_config(
         # Method 1: Direct TPR/FPR values
         tpr_values = red_team_positive_rate_values["tpr"]
         fpr_values = red_team_positive_rate_values["fpr"]
-    elif red_team_scores is not None:
-        assert red_team_scores.keys() == {"positive", "negative"}, (
+    elif red_team_confidence_scores is not None:
+        assert red_team_confidence_scores.keys() == {"positive", "negative"}, (
             "If providing red team scores, must provide both positive and negative scores"
         )
         # Method 2: Calculate TPR/FPR from positive/negative scores
         tpr_values, fpr_values = calculate_tpr_fpr_from_scores(
-            red_team_scores["positive"], red_team_scores["negative"]
+            red_team_confidence_scores["positive"],
+            red_team_confidence_scores["negative"],
         )
     elif red_team_auc_roc is not None:
         # Method 3: Generate TPR/FPR from AUC ROC
@@ -160,6 +161,7 @@ def build_optimization_config(
         blue_team_win_calculator=blue_team_win_calculator,
         red_team_positive_rate_values=red_team_positive_rate_values,
         red_team_confusion_matrix=red_team_confusion_matrix,
+        red_team_confidence_scores=red_team_confidence_scores,
     )
 
 
@@ -576,7 +578,6 @@ def grid_search(
 def calculate_tpr_fpr_from_scores(
     positive_scores: List[float],
     negative_scores: List[float],
-    num_thresholds: int = 100,
 ) -> Tuple[List[float], List[float]]:
     """Calculate TPR and FPR values from positive and negative scores.
 
@@ -594,9 +595,7 @@ def calculate_tpr_fpr_from_scores(
     )
 
     # Create thresholds from min to max score
-    min_score = np.min(all_scores)
-    max_score = np.max(all_scores)
-    thresholds = np.linspace(min_score, max_score, num_thresholds)
+    thresholds = np.sort(list(set(positive_scores)) + [np.inf])[::-1]
 
     tpr_values = []
     fpr_values = []
@@ -616,6 +615,30 @@ def calculate_tpr_fpr_from_scores(
 
         tpr_values.append(float(tpr))
         fpr_values.append(float(fpr))
+
+    # Epic leetcode interview question: make the ROC curve convex
+    convex = False
+    while not convex:
+        convex = True
+        for i in range(1, len(tpr_values) - 1):
+            # Check if the point is below the line connecting its neighbors
+            x0, y0 = fpr_values[i - 1], tpr_values[i - 1]
+            x1, y1 = fpr_values[i + 1], tpr_values[i + 1]
+            x, y = fpr_values[i], tpr_values[i]
+
+            # Calculate the slope of the line segment
+            if x1 != x0:
+                slope = (y1 - y0) / (x1 - x0)
+                expected_y = y0 + slope * (x - x0)
+
+                if y < expected_y:
+                    # Point is below the line, remove it
+                    del fpr_values[i]
+                    del tpr_values[i]
+
+                    convex = False
+
+                    break
 
     return tpr_values, fpr_values
 

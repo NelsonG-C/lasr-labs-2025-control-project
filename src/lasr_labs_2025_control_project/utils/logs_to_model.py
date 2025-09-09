@@ -64,9 +64,9 @@ def _extract_scores_from_df(
     Returns:
     pd.DataFrame: DataFrame containing only the specified column with scores.
     """
-    assert (
-        column_name in df.columns
-    ), f"Column '{column_name}' not found in DataFrame.\nAvailable columns: {df.columns.tolist()}"
+    assert column_name in df.columns, (
+        f"Column '{column_name}' not found in DataFrame.\nAvailable columns: {df.columns.tolist()}"
+    )
 
     try:
         df = df[df.apply(row_filter, axis=1)]
@@ -95,7 +95,7 @@ def runner():
     config = utils.build_optimization_config(
         num_tasks=5000,
         blue_team_budget_fraction=0.02,
-        red_team_scores={"positive": tpr_scores, "negative": fpr_scores},
+        red_team_confidence_scores={"positive": tpr_scores, "negative": fpr_scores},
     )
     result = utils.optimize_parameters(
         config=config,

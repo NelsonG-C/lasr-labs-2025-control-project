@@ -18,6 +18,73 @@ def plot_data(
 ) -> None:
     plot_roc_curves(data_dict)
     plot_safety_usefulness_curves(data_dict)
+    plot_histograms(data_dict)
+
+
+def plot_histograms(
+    data_dict: Dict[str, OptimizationResult],
+    save_path: str = "src/lasr_labs_2025_control_project/apps/results/histograms.png",
+) -> None:
+    # Collect only those results that have red_team_confidence_scores available
+    items = [
+        (label, result)
+        for label, result in data_dict.items()
+        if getattr(result.config, "red_team_confidence_scores", None)
+    ]
+
+    if not items:
+        print(
+            "No red_team_confidence_scores found in any OptimizationResult; skipping histograms."
+        )
+        return
+
+    n = len(items)
+    # Arrange subplots in a near-square grid
+    ncols = int(np.ceil(np.sqrt(n)))
+    nrows = int(np.ceil(n / ncols))
+
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(4 * ncols, 3 * nrows))
+
+    # Normalize axes into a flat list for easy indexing
+    if isinstance(axes, np.ndarray):
+        axes_flat = axes.flatten()
+    else:
+        axes_flat = [axes]
+
+    for ax, (title, result) in zip(axes_flat, items):
+        scores_dict = getattr(result.config, "red_team_confidence_scores", {}) or {}
+
+        # Plot each score list in this subplot. Use consistent colors/alpha for readability.
+        any_plotted = False
+        # Use consistent integer bins from 1..10 across all histograms
+        # edges centered so integer values map cleanly to bins
+        bins = np.arange(0.5, 10.6, 1.0)
+        for key in sorted(scores_dict.keys()):
+            vals = np.atleast_1d(np.array(scores_dict[key], dtype=float))
+            if vals.size == 0:
+                continue
+            any_plotted = True
+            ax.hist(vals, bins=bins, alpha=0.6, label=key, rwidth=0.8)
+
+        ax.set_title(title)
+        ax.set_xlabel("Confidence Score")
+        ax.set_ylabel("Count")
+        if any_plotted and len(scores_dict) > 1:
+            ax.legend()
+
+    # Turn off any unused axes
+    for ax in axes_flat[len(items) :]:
+        try:
+            ax.axis("off")
+        except Exception:
+            pass
+
+    fig.tight_layout()
+    fig.savefig(save_path, dpi=300, bbox_inches="tight")
+    print(f"Plot saved to: {save_path}")
+    plt.close()
+
+    return
 
 
 def plot_roc_curves(
@@ -74,7 +141,18 @@ def plot_roc_curves(
 
     if rows:
         df = pd.DataFrame(rows)
-        sns.lineplot(data=df, x="fpr", y="tpr", hue="label", ax=ax)
+        # Plot raw points (no aggregation) and show markers for every datapoint.
+        # `estimator=None` disables aggregation which otherwise produces error bars
+        # when multiple y values share the same x; `marker` makes each point visible.
+        sns.lineplot(
+            data=df,
+            x="fpr",
+            y="tpr",
+            hue="label",
+            ax=ax,
+            estimator=None,
+            sort=False,
+        )
 
     # plot any scatter points on top (suppress duplicate legend entries)
     if scatter_rows:

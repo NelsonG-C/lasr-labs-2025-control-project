@@ -43,4 +43,4 @@ apps_task = get_control_task_product(
 )
 
 n = 2
-eval = eval(tasks=apps_task, epochs=Epochs(n, [f"pass_at_{n}"]), limit=10)
+eval = eval(tasks=apps_task, epochs=Epochs(n, [f"pass_at_{n}"]), limit=20)
