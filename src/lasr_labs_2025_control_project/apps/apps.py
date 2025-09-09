@@ -17,6 +17,7 @@ from lasr_labs_2025_control_project.apps.prompts import (
     monitor_self_rec_collusion_strategy,
     self_rec_attack_monitor_prompt,
     self_rec_attack_policy_prompt,
+    self_rec_honest_policy_prompt,
 )
 from lasr_labs_2025_control_project.apps.utils.policy_gate import (
     policy_gate,
@@ -50,7 +51,7 @@ apps_setting = AppsSetting(
 # Policies
 def untrusted_policy_builder(model: str) -> Any:
     return policy_gate(
-        honest=honest_policy(model=model, prompt=honest_policy_prompt),
+        honest=honest_policy(model=model, prompt=self_rec_honest_policy_prompt),
         attack=attack_policy(
             model=model,
             prompt=attack_policy_prompt,

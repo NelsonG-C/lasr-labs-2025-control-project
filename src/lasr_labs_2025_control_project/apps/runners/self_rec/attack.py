@@ -24,7 +24,7 @@ apps_task = get_control_task_product(
             model=untrusted_model, score_field=score_field
         ),
     ),
-    modes=[EvalMode.ATTACK],
+    modes=[EvalMode.HONEST],
     monitoring_scorers=[max_confidence_scorer()],
     eval_config=ControlEvalConfig(untrusted_model=untrusted_model),
 )
