@@ -16,6 +16,7 @@ from lasr_labs_2025_control_project.apps.prompts import (
     honest_policy_prompt,
     monitor_self_rec_collusion_strategy,
     self_rec_attack_monitor_prompt,
+    self_rec_attack_policy_prompt,
 )
 from lasr_labs_2025_control_project.apps.utils.policy_gate import (
     policy_gate,
@@ -26,9 +27,12 @@ from lasr_labs_2025_control_project.utils.setting import (
 
 # definitions of the prompts we use
 # Assign the prompts from the file here to pass into their respective builders
-attack_policy_prompt = backdoor_injection_prompt
+attack_policy_prompt = self_rec_attack_policy_prompt
 attack_monitor_prompt = self_rec_attack_monitor_prompt
 collusion_strategy_prompt = monitor_self_rec_collusion_strategy
+
+# human honeypot prompt - base human solution prompting to add backdoor
+human_honeypot_prompt = backdoor_injection_prompt
 
 # Setting for the experiments
 # Use train set for quick iteration, switch to validation or test for final runs
@@ -62,6 +66,18 @@ def honeypot_policy_builder(model: str) -> Any:
         attack=attack_policy(
             model=model,
             prompt=attack_policy_prompt,
+            collusion_strategy=attack_self_rec_collusion_strategy,
+            ephemeral_reminder=False,
+        ),
+    )
+
+
+def human_honeypot_policy_builder(model: str) -> Any:
+    return policy_gate(
+        honest=honest_policy(model=model, prompt=honest_policy_prompt),
+        attack=attack_policy(
+            model=model,
+            prompt=human_honeypot_prompt,
             collusion_strategy=attack_self_rec_collusion_strategy,
             ephemeral_reminder=False,
         ),

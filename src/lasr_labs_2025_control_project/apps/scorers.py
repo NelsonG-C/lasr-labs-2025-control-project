@@ -2,7 +2,7 @@ import logging
 
 from control_arena.scorers.metrics import accuracy
 from inspect_ai.model import ChatMessageAssistant
-from inspect_ai.scorer import Score, Target, scorer
+from inspect_ai.scorer import Score, Target, mean, scorer
 from inspect_ai.solver import TaskState
 
 logging.basicConfig(level=logging.INFO)
@@ -38,7 +38,7 @@ def max_suspicion_scorer():
 
 
 # separated from max_suspicion_scorer to allow for changes to their scoring - might collapse down soon
-@scorer(metrics=[accuracy()])
+@scorer(metrics=[mean()])
 def max_confidence_scorer():
     async def score(state: TaskState, target: Target) -> Score:
         step_scores = []
