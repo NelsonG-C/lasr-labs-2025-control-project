@@ -36,16 +36,19 @@ def calculate_logprobs(
 
 
 def get_answer_logprobs(completion: ChatCompletion) -> dict[str, Any]:
+    # get the index of the token that is "YES" or "NO"
     token_index = [
         (i, logprob)
         for i, logprob in enumerate(completion.choices[0].logprobs.content or [])
         if logprob.token.lower() in ["yes", "no"]
     ][0][0]
+    # get the logprob of "YES" from the top 20 logprobs
     yes_toks = [
         logprob
         for logprob in completion.choices[0].logprobs.content[token_index].top_logprobs
         if logprob.token.lower() == "yes"
     ]
+    # if there is no "YES" in the top 20 logprobs, just use the least likely logprob from the top 20 logprobs (not sure about that)
     if not yes_toks:
         yes_logprob = (
             completion.choices[0].logprobs.content[token_index].top_logprobs[-1]
@@ -53,11 +56,13 @@ def get_answer_logprobs(completion: ChatCompletion) -> dict[str, Any]:
     else:
         yes_logprob = yes_toks[0]
 
+    # get the logprob of "NO" from the top 20 logprobs
     no_toks = [
         logprob
         for logprob in completion.choices[0].logprobs.content[token_index].top_logprobs
         if logprob.token.lower() == "no"
     ]
+    # if there is no "NO" in the top 20 logprobs, just use the least likely logprob from the top 20 logprobs (not sure about that)
     if not no_toks:
         no_logprob = (
             completion.choices[0].logprobs.content[token_index].top_logprobs[-1]
