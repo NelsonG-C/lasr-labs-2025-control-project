@@ -13,7 +13,7 @@ from lasr_labs_2025_control_project.apps.protocols.untrusted_monitoring_protocol
 )
 from lasr_labs_2025_control_project.apps.scorers import max_confidence_scorer
 
-untrusted_model = "openai/gpt-4o"
+untrusted_model = "openai/gpt-4.1"
 score_field = "confidence_score"
 
 apps_task = get_control_task_product(
@@ -24,9 +24,9 @@ apps_task = get_control_task_product(
             model=untrusted_model, score_field=score_field
         ),
     ),
-    modes=[EvalMode.ATTACK],
+    modes=[EvalMode.HONEST],
     monitoring_scorers=[max_confidence_scorer()],
     eval_config=ControlEvalConfig(untrusted_model=untrusted_model),
 )
-n = 2
-eval = eval(tasks=apps_task, epochs=Epochs(n, [f"pass_at_{n}"]), limit=10)
+n = 1
+eval = eval(tasks=apps_task, epochs=Epochs(n, [f"pass_at_{n}"]))
