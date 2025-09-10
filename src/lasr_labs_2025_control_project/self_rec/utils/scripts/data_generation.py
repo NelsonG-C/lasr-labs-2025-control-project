@@ -138,18 +138,30 @@ def process_single_sample(
             else:
                 return ""
         elif model_provider == "google":
-            if not google_client:
-                raise ValueError("Google Gemini client not provided")
-
-            client = genai.Client()
-
-            response = client.models.generate_content(
-                model=model_name,
-                contents=[{"role": "user", "parts": [{"text": problem}]}],
-                config={"system_instruction": {"parts": [{"text": prompt}]}},
+            client = OpenAI(
+                api_key=os.getenv("OPENROUTER_API_KEY"),
+                base_url="https://openrouter.ai/api/v1",
             )
-            if response and response.text is not None:
-                return response.text
+            if not client:
+                raise ValueError("OpenAI client not provided")
+
+            messages = [
+                {
+                    "role": "system",
+                    "content": prompt,
+                },
+                {
+                    "role": "user",
+                    "content": problem,
+                },
+            ]
+            response = client.chat.completions.create(
+                model=f"{model_provider}/{model_name}",
+                messages=messages,
+            )
+
+            if response and response.choices[0].message.content is not None:
+                return response.choices[0].message.content
             else:
                 raise ValueError("No text content in Google Gemini response")
         elif model_provider == "human":
