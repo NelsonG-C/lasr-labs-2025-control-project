@@ -4,7 +4,7 @@ from asyncio import run
 from dataclasses import dataclass
 from typing import Any, Coroutine, Dict, List, cast
 
-import python_minifier
+import python_minifier  # type: ignore
 
 from lasr_labs_2025_control_project.self_rec.utils.scripts.data_models import (
     ProblemSolutions,

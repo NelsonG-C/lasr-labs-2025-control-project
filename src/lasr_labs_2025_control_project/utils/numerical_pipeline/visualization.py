@@ -3,10 +3,10 @@
 import re
 from typing import Dict
 
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import seaborn as sns
+import matplotlib.pyplot as plt  # type: ignore
+import numpy as np  # type: ignore
+import pandas as pd  # type: ignore
+import seaborn as sns  # type: ignore
 
 from lasr_labs_2025_control_project.utils.numerical_pipeline import (
     OptimizationResult,

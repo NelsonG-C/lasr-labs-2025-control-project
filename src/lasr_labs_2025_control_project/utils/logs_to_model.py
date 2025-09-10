@@ -2,10 +2,10 @@ import os
 from pathlib import Path
 from typing import Any, Callable
 
-import pandas as pd
-from inspect_ai.analysis import samples_df
+import pandas as pd  # type: ignore
+from inspect_ai.analysis import samples_df  # type: ignore
 
-from lasr_labs_2025_control_project.numerical_pipeline import utils, visualization
+from lasr_labs_2025_control_project.utils.numerical_pipeline import utils, visualization  # type: ignore
 
 
 def row_filter(row: Any) -> bool:
@@ -40,7 +40,7 @@ def row_filter(row: Any) -> bool:
         return False
 
 
-def get_scores_from_path(path: os.PathLike[str]) -> pd.DataFrame:
+def get_scores_from_path(path: os.PathLike[str]) -> Any:  # pd.DataFrame
     return _extract_scores_from_df(
         samples_df(path),
         column_name="score_max_confidence_scorer",
@@ -49,11 +49,11 @@ def get_scores_from_path(path: os.PathLike[str]) -> pd.DataFrame:
 
 
 def _extract_scores_from_df(
-    df: pd.DataFrame,
+    df: Any,  # pd.DataFrame
     column_name: str = "max_suspiciousness_score",
     new_column_name: str = "Score",
     row_filter: Callable[[Any], bool] = lambda row: True,
-) -> pd.DataFrame:
+) -> Any:  # pd.DataFrame
     """
     Extract scores from a DataFrame column.
 

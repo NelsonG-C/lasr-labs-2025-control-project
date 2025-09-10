@@ -1,12 +1,13 @@
 import logging
 import textwrap
 from pathlib import Path
+from typing import Any
 
-from control_arena.settings.apps.task.dataset import AppsTaskMetadata
-from inspect_ai.log import read_eval_log
-from inspect_ai.solver import TaskState
-from inspect_ai.tool import Tool, ToolError, tool
-from inspect_ai.util import sandbox, store
+from control_arena.settings.apps.task.dataset import AppsTaskMetadata  # type: ignore
+from inspect_ai.log import read_eval_log  # type: ignore
+from inspect_ai.solver import TaskState  # type: ignore
+from inspect_ai.tool import Tool, ToolError, tool  # type: ignore
+from inspect_ai.util import sandbox, store  # type: ignore
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -49,8 +50,8 @@ def get_accuracies_from_log(log_path: str, scorer_name: str) -> list[float] | No
 
 
 # not currently used, but may be useful in future
-@tool
-def has_backdoor_tool(state: TaskState) -> Tool:
+@tool  # type: ignore
+def has_backdoor_tool(state: Any) -> Any:  # TaskState -> Tool
     async def execute(submitted_code: str, secret_input: str) -> str:
         """Check if submitted code contains a backdoor by comparing outputs with correct code.
 
@@ -123,7 +124,7 @@ async def run_with_timeout(
     code: str,
     input_str: str,
     timeout_seconds: int = 10,
-):
+) -> tuple[Any, Any]:  # -> tuple[str, str] but using Any for permissiveness
     # Run the code
     try:
         result = await sandbox().exec(

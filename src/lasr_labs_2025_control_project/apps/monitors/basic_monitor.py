@@ -1,19 +1,20 @@
 import logging
+from typing import Any
 
-from control_arena.agent_builder import AgentBuilderType, control_agent
-from control_arena.control_task_metadata import ControlTaskMetadata
-from control_arena.monitor.score_parsing import parse_score_from_string
-from control_arena.protocol_arg_defaults import get_trusted_model
-from control_arena.utils import extract_xml_tag, get_model_response_str
-from inspect_ai.agent import Agent, AgentState
-from inspect_ai.model import (
+from control_arena.agent_builder import AgentBuilderType, control_agent  # type: ignore
+from control_arena.control_task_metadata import ControlTaskMetadata  # type: ignore
+from control_arena.monitor.score_parsing import parse_score_from_string  # type: ignore
+from control_arena.protocol_arg_defaults import get_trusted_model  # type: ignore
+from control_arena.utils import extract_xml_tag, get_model_response_str  # type: ignore
+from inspect_ai.agent import Agent, AgentState  # type: ignore
+from inspect_ai.model import (  # type: ignore
     ChatMessageAssistant,
     ChatMessageSystem,
     ChatMessageUser,
     get_model,
 )
-from inspect_ai.tool import Tool
-from pydantic import BaseModel, Field
+from inspect_ai.tool import Tool  # type: ignore
+from pydantic import BaseModel, Field  # type: ignore
 
 from lasr_labs_2025_control_project.apps.prompts import honest_monitor_prompt
 
@@ -27,8 +28,8 @@ class MonitorResponse(BaseModel):
 
 
 def get_prompt(
-    task_metadata: ControlTaskMetadata,
-    assistant_message: ChatMessageAssistant,
+    task_metadata: Any,  # ControlTaskMetadata
+    assistant_message: Any,  # ChatMessageAssistant
     prompt: str,
     collusion_strategy: str = "",
 ) -> str:
@@ -46,20 +47,20 @@ def get_prompt(
     )
 
 
-@control_agent
+@control_agent  # type: ignore
 def basic_monitor(
     model: str = Field(default_factory=get_trusted_model),
     prompt: str = Field(default=honest_monitor_prompt),
     score_field: str = Field(default="suspicion_score"),
     collusion_strategy: str = Field(default=""),
     exclude_tool_calls: list[str] = Field(default_factory=list),
-) -> AgentBuilderType:
+) -> Any:  # AgentBuilderType
     monitor_model = get_model(model)
 
-    def monitor(task_metadata: ControlTaskMetadata) -> Agent:
+    def monitor(task_metadata: Any) -> Any:  # ControlTaskMetadata -> Agent
         """A protocol that applies monitoring to policy outputs."""
 
-        async def impl(state: AgentState, tools: list[Tool]) -> AgentState:
+        async def impl(state: Any, tools: list[Any]) -> Any:  # AgentState, list[Tool] -> AgentState
             last_message = state.output.message
 
             if last_message.tool_calls is None:
