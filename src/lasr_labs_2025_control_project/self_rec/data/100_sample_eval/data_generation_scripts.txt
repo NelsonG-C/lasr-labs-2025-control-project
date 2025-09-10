@@ -1,0 +1,15 @@
+
+# human
+uv run src/lasr_labs_2025_control_project/self_rec/utils/scripts/data_generation.py --num-samples=100 --provider="google" --model="gemini-2.5-pro" --max-workers=5 --data-split="test"
+
+
+###### To Be Run
+
+# gemini 2.5 flash
+uv run src/lasr_labs_2025_control_project/self_rec/utils/scripts/data_generation.py --num-samples=100 --provider="google" --model="gemini-2.5-flash" --max-workers=5 --data-split="test"
+
+# gemini 2.5 pro
+uv run src/lasr_labs_2025_control_project/self_rec/utils/scripts/data_generation.py --num-samples=100 --provider="google" --model="gemini-2.5-pro" --max-workers=5 --data-split="test"
+
+# claude 4 sonnet
+uv run src/lasr_labs_2025_control_project/self_rec/utils/scripts/data_generation.py --num-samples=100 --provider="anthropic" --model="claude-sonnet-4-20250514" --max-workers=10 --data-split="test"

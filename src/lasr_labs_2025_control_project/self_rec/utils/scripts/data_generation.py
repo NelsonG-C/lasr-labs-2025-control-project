@@ -75,6 +75,7 @@ def process_single_sample(
     anthropic_client: Optional[Anthropic] = None,
     google_client: Optional[genai.Client] = None,
     data_split: str | None = None,
+    filter_on_split: str = "",
 ) -> ProblemSolutions:
     """
     Process a single sample with retry logic
@@ -178,6 +179,7 @@ def process_single_sample(
                         "generation_prompt": prompt,
                         "data_split": data_split,
                         "dataset_name": "apps",  # hardcoded for now
+                        "filter_on_split": filter_on_split,
                     },
                 )
             ],
@@ -204,10 +206,12 @@ def generate_problems(
         max_workers: Maximum number of concurrent workers
         batch_size: Number of samples to process in each batch
     """
+    filter_on_split = "even_test"
     apps_setting = AppsSetting(
         dataset_name="simple",
-        split=data_split,
-        cache_python_code=True,
+        original_dataset_split=data_split,
+        filter_on_split=filter_on_split,
+        cache_python_code=False,
         num_tests_to_run=10,
         dataset_type="filtered",
         shuffle=False,
@@ -216,7 +220,9 @@ def generate_problems(
     dataset = apps_setting.get_dataset(eval_mode=EvalMode.HONEST)
     dataset = dataset[:num_samples]
 
-    output_dir = Path("src/lasr_labs_2025_control_project/self_rec/data/")
+    output_dir = Path(
+        "src/lasr_labs_2025_control_project/self_rec/data/100_sample_eval"
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
     results_file = output_dir / f"{uuid4()}.json"
 
@@ -254,13 +260,14 @@ def generate_problems(
             future_to_sample = {
                 executor.submit(
                     process_single_sample,
-                    sample,
-                    model_name,
-                    model_provider,
-                    openai_client,
-                    anthropic_client,
-                    google_client,
-                    data_split,
+                    sample=sample,
+                    model_name=model_name,
+                    model_provider=model_provider,
+                    openai_client=openai_client,
+                    anthropic_client=anthropic_client,
+                    google_client=google_client,
+                    data_split=data_split,
+                    filter_on_split=filter_on_split,
                 ): sample
                 for sample in batch
             }

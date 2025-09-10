@@ -98,7 +98,7 @@ def _get_logprobs_from_dataset(
             problem_text = str(user_msgs.iloc[0]["content"]).strip()
 
         # Solution: prefer assistant message that contains <final_code>; otherwise parse JSON with code
-        assist_msgs = group[group["role"] == "assistant"].sort_values("order")
+        assist_msgs = group[group["role"] == "assistant"].sort_values("order")  # type: ignore
         solution_text = None
         for _, row in assist_msgs.iterrows():
             content = row.get("content")
