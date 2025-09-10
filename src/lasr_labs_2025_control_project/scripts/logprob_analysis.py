@@ -14,8 +14,8 @@ import re
 from pathlib import Path
 from typing import Callable, Dict, List
 
-from dotenv import load_dotenv
-from inspect_ai.analysis import messages_df
+from dotenv import load_dotenv  # type: ignore
+from inspect_ai.analysis import messages_df  # type: ignore
 
 from lasr_labs_2025_control_project.utils.model_calling.logprobs import (
     build_logprob_caller,

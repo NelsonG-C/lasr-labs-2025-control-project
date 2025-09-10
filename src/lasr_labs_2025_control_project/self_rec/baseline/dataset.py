@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from inspect_ai.dataset import MemoryDataset, Sample
+from inspect_ai.dataset import MemoryDataset, Sample  # type: ignore
 
 from lasr_labs_2025_control_project.self_rec.utils.scripts.data_models import Dataset
 
@@ -32,12 +32,12 @@ def set_dataset(
 def binary_rec_dataset_filter(
     same_model_pairing: bool,
     recognizer_model: str,
-    dataset: Dataset,
+    dataset: Any,  # Dataset
     model_a: str,
     model_b: str,
     prompt: str,
     reversed: bool,
-) -> MemoryDataset:
+) -> Any:  # MemoryDataset
     if same_model_pairing:
         # Filter to only the recognizer model and only problems with multiple solutions
         model_dataset = dataset.filter(model=recognizer_model)
@@ -65,13 +65,13 @@ def binary_rec_dataset_filter(
 
 
 def pair_datasets(
-    dataset_a: Dataset,
-    dataset_b: Dataset,
+    dataset_a: Any,  # Dataset
+    dataset_b: Any,  # Dataset
     prompt: str,
     recognizer_model: str = "none",
     same_model_pairing: bool = False,
     reversed: bool = False,
-) -> MemoryDataset:
+) -> Any:  # MemoryDataset
     samples = []
 
     if same_model_pairing:

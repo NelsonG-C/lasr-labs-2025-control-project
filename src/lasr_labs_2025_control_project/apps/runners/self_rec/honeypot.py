@@ -1,7 +1,7 @@
-from control_arena.eval.control_eval_config import ControlEvalConfig
-from control_arena.eval.control_eval_def import get_control_task_product
-from control_arena.eval_mode import EvalMode
-from inspect_ai import Epochs, eval
+from control_arena.eval.control_eval_config import ControlEvalConfig  # type: ignore
+from control_arena.eval.control_eval_def import get_control_task_product  # type: ignore
+from control_arena.eval_mode import EvalMode  # type: ignore
+from inspect_ai import Epochs, eval  # type: ignore
 
 from lasr_labs_2025_control_project.apps.apps import (
     apps_setting,

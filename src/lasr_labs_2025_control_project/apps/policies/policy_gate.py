@@ -7,27 +7,28 @@ task.
 
 from logging import getLogger
 
-from control_arena.agent_builder import (
+from control_arena.agent_builder import (  # type: ignore
     AgentBuilder,
     AgentBuilderType,
     control_agent,
 )
-from control_arena.control_task_metadata import ControlTaskMetadata
-from control_arena.eval_mode import EvalMode
-from inspect_ai.agent import Agent
-from pydantic import Field
+from control_arena.control_task_metadata import ControlTaskMetadata  # type: ignore
+from control_arena.eval_mode import EvalMode  # type: ignore
+from inspect_ai.agent import Agent  # type: ignore
+from pydantic import Field  # type: ignore
 
 from lasr_labs_2025_control_project.apps.policies.attack_policy import attack_policy
 from lasr_labs_2025_control_project.apps.policies.honest_policy import honest_policy
+from typing import Any
 
 logger = getLogger(__name__)
 
 
-@control_agent
+@control_agent  # type: ignore
 def policy_gate(
-    attack: AgentBuilder = Field(default_factory=attack_policy),
-    honest: AgentBuilder = Field(default_factory=honest_policy),
-) -> AgentBuilderType:
+    attack: Any = Field(default_factory=attack_policy),  # AgentBuilder
+    honest: Any = Field(default_factory=honest_policy),  # AgentBuilder
+) -> Any:  # AgentBuilderType
     """A policy builder that uses honest behavior for regular tasks and attack behavior for side tasks.
 
     This policy switches between honest and attack behavior based on the evaluation mode.
@@ -41,7 +42,7 @@ def policy_gate(
             means the default honest policy builder will be used.
     """
 
-    def gate(task_metadata: ControlTaskMetadata) -> Agent:
+    def gate(task_metadata: Any) -> Any:  # ControlTaskMetadata -> Agent
         """Temporary untrusted policy builder for transition.
 
         Args:

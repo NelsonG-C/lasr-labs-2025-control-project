@@ -1,4 +1,4 @@
-from inspect_ai import eval
+from inspect_ai import eval  # type: ignore
 
 from lasr_labs_2025_control_project.self_rec.baseline.self_rec_eval import (
     binary_self_rec,

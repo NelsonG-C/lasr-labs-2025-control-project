@@ -2,8 +2,8 @@ import asyncio
 import re
 from typing import Any, Awaitable, Callable, Optional, Sequence, cast
 
-from openai import OpenAI
-from openai.types.chat import ChatCompletion
+from openai import OpenAI  # type: ignore
+from openai.types.chat import ChatCompletion  # type: ignore
 
 from lasr_labs_2025_control_project.utils.model_calling import (
     retry_api_call,

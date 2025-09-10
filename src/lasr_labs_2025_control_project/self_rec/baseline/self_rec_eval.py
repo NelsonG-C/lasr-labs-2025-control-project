@@ -2,9 +2,9 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from inspect_ai import Task, task
-from inspect_ai.dataset import MemoryDataset, Sample
-from inspect_ai.solver import generate, prompt_template
+from inspect_ai import Task, task  # type: ignore
+from inspect_ai.dataset import MemoryDataset, Sample  # type: ignore
+from inspect_ai.solver import generate, prompt_template  # type: ignore
 
 from lasr_labs_2025_control_project.self_rec.baseline.dataset import (
     binary_rec_dataset_filter,

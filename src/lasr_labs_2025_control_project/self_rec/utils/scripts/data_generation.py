@@ -6,11 +6,11 @@ from pathlib import Path
 from typing import Any, Callable, Literal, Optional, TypeVar
 from uuid import uuid4
 
-from anthropic import Anthropic
-from control_arena.eval_mode import EvalMode
-from dotenv import load_dotenv
-from google import genai
-from openai import OpenAI
+from anthropic import Anthropic  # type: ignore
+from control_arena.eval_mode import EvalMode  # type: ignore
+from dotenv import load_dotenv  # type: ignore
+from google import genai  # type: ignore
+from openai import OpenAI  # type: ignore
 
 from lasr_labs_2025_control_project.apps.settings.setting import (
     AppsSetting,

@@ -1,22 +1,23 @@
-from control_arena.agent_builder import (
+from control_arena.agent_builder import (  # type: ignore
     AgentBuilder,
     AgentBuilderType,
     control_agent,
 )
-from control_arena.control_task_metadata import ControlTaskMetadata
-from inspect_ai.agent import Agent, AgentState
-from inspect_ai.tool import Tool
-from pydantic import Field
+from control_arena.control_task_metadata import ControlTaskMetadata  # type: ignore
+from inspect_ai.agent import Agent, AgentState  # type: ignore
+from inspect_ai.tool import Tool  # type: ignore
+from pydantic import Field  # type: ignore
 
 from lasr_labs_2025_control_project.apps.monitors.basic_monitor import basic_monitor
 from lasr_labs_2025_control_project.apps.policies.policy_gate import policy_gate
+from typing import Any
 
 
-@control_agent
+@control_agent  # type: ignore
 def untrusted_monitoring_protocol(
-    policy_builder: AgentBuilder = Field(default_factory=policy_gate),
-    monitor_builder: AgentBuilder = Field(default_factory=basic_monitor),
-) -> AgentBuilderType:
+    policy_builder: Any = Field(default_factory=policy_gate),  # AgentBuilder
+    monitor_builder: Any = Field(default_factory=basic_monitor),  # AgentBuilder
+) -> Any:  # AgentBuilderType
     """Build an untrusted monitor agent that combines policy and monitor.
 
     Args:
@@ -27,7 +28,7 @@ def untrusted_monitoring_protocol(
         An agent that combines the policy and monitor.
     """
 
-    def untrusted_monitor(task_metadata: ControlTaskMetadata) -> Agent:
+    def untrusted_monitor(task_metadata: Any) -> Any:  # ControlTaskMetadata -> Agent
         """A protocol that applies monitoring to policy outputs.
 
         Args:
@@ -37,7 +38,7 @@ def untrusted_monitoring_protocol(
         policy = policy_builder(task_metadata)
         monitor = monitor_builder(task_metadata)
 
-        async def impl(state: AgentState, tools: list[Tool]) -> AgentState:
+        async def impl(state: Any, tools: list[Any]) -> Any:  # AgentState, list[Tool] -> AgentState
             state = await policy(state, tools)
             # Check if there are tool calls and specifically if "submit" is among them
             if state.output.message and state.output.message.tool_calls:

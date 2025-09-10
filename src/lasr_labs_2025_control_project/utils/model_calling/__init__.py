@@ -4,9 +4,9 @@ import re
 import time
 from typing import Any, Awaitable, Callable, Optional, Sequence, TypeVar, cast
 
-from anthropic import Anthropic
-from google import genai
-from openai import OpenAI
+from anthropic import Anthropic  # type: ignore
+from google import genai  # type: ignore
+from openai import OpenAI  # type: ignore
 
 # Configure logging
 logging.basicConfig(

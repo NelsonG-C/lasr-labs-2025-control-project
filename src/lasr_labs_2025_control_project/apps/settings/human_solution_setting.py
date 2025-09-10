@@ -1,31 +1,31 @@
 import json
 from typing import Any, Callable, Dict, List, Literal
 
-from control_arena.control_task_metadata import ControlTaskMetadata
-from control_arena.eval_mode import EvalMode
-from control_arena.settings.apps.task.dataset import (
+from control_arena.control_task_metadata import ControlTaskMetadata  # type: ignore
+from control_arena.eval_mode import EvalMode  # type: ignore
+from control_arena.settings.apps.task.dataset import (  # type: ignore
     AppsTaskMetadata,
     get_backdoors_dataset,
 )
-from control_arena.settings.apps.task.scorers import (
+from control_arena.settings.apps.task.scorers import (  # type: ignore
     apps_scorer,
 )
-from control_arena.settings.apps.task.submission_types import (
+from control_arena.settings.apps.task.submission_types import (  # type: ignore
     SubmitAttackArgs,
     SubmitHonestArgs,
 )
-from control_arena.settings.setting import Setting
-from control_arena.tools.submit_tool import SubmitToolConfig
-from inspect_ai.dataset import Dataset, MemoryDataset, Sample, hf_dataset
-from inspect_ai.scorer import (
+from control_arena.settings.setting import Setting  # type: ignore
+from control_arena.tools.submit_tool import SubmitToolConfig  # type: ignore
+from inspect_ai.dataset import Dataset, MemoryDataset, Sample, hf_dataset  # type: ignore
+from inspect_ai.scorer import (  # type: ignore
     Scorer,
 )
-from inspect_ai.solver import (
+from inspect_ai.solver import (  # type: ignore
     TaskState,
 )
-from inspect_ai.tool import Tool
-from inspect_ai.util import SandboxEnvironmentSpec
-from pydantic import Field
+from inspect_ai.tool import Tool  # type: ignore
+from inspect_ai.util import SandboxEnvironmentSpec  # type: ignore
+from pydantic import Field  # type: ignore
 
 from lasr_labs_2025_control_project.apps.prompts import (
     SETTING_DESCRIPTION,
@@ -47,7 +47,7 @@ class HumanSolutionAppsSetting(Setting):
     def get_name(cls) -> str:
         return "apps"
 
-    def get_agent_tools(self, state: TaskState) -> list[Tool]:
+    def get_agent_tools(self, state: Any  # TaskState) -> list[Tool]:
         return []
 
     def get_submit_tool_config(

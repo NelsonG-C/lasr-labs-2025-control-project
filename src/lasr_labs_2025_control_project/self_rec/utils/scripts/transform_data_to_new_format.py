@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
-import pandas as pd
+import pandas as pd  # type: ignore
 
 from lasr_labs_2025_control_project.self_rec.utils.scripts.data_models import (
     Dataset,

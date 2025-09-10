@@ -2,7 +2,7 @@ import hashlib
 from pathlib import Path
 from typing import Any, Iterator
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field  # type: ignore
 
 MAX_HASH_LENGTH = 12
 
