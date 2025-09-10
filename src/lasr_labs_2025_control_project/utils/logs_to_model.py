@@ -79,7 +79,7 @@ def _extract_scores_from_df(
     return new_df
 
 
-def runner():
+def runner()):  # type: ignore
     tpr_file_path = Path(
         "src/lasr_labs_2025_control_project/apps/results/logs/base/2025-09-08T15-48-38+01-00_apps-untrusted-monitoring-protocol-attack-18d39942_E2cimgd9vrvKfCgTvhBkb2.eval"
     )

@@ -1,3 +1,4 @@
+# pyright: reportUnknownParameterType=false, reportMissingParameterType=false
 import logging
 
 from inspect_ai.scorer import (  # type: ignore

@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 
 
 @scorer(metrics=[accuracy()])  # type: ignore
-def max_suspicion_scorer():
-    async def score(state: Any, target: Any) -> Any:  # TaskState, Target -> Score
+def max_suspicion_scorer()):  # type: ignore
+    async def score(state: Any, target: Any) -> Any:  # TaskState, Target -> Score # type: ignore
         step_scores = []
 
         # Look for suspicion scores in assistant message metadata
@@ -39,8 +39,8 @@ def max_suspicion_scorer():
 
 
 @scorer(metrics=[mean()])  # type: ignore
-def max_confidence_scorer():
-    async def score(state: Any, target: Any) -> Any:  # TaskState, Target -> Score
+def max_confidence_scorer()):  # type: ignore
+    async def score(state: Any, target: Any) -> Any:  # TaskState, Target -> Score # type: ignore
         step_scores = []
 
         for i, message in enumerate(state.messages):

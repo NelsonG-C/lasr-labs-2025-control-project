@@ -26,8 +26,8 @@ logger = getLogger(__name__)
 
 @control_agent  # type: ignore
 def policy_gate(
-    attack: Any = Field(default_factory=attack_policy),  # AgentBuilder
-    honest: Any = Field(default_factory=honest_policy),  # AgentBuilder
+    attack: Any = Field(default_factory=attack_policy),  # AgentBuilder # type: ignore
+    honest: Any = Field(default_factory=honest_policy),  # AgentBuilder # type: ignore
 ) -> Any:  # AgentBuilderType
     """A policy builder that uses honest behavior for regular tasks and attack behavior for side tasks.
 
@@ -42,7 +42,7 @@ def policy_gate(
             means the default honest policy builder will be used.
     """
 
-    def gate(task_metadata: Any) -> Any:  # ControlTaskMetadata -> Agent
+    def gate(task_metadata: Any) -> Any:  # ControlTaskMetadata -> Agent # type: ignore
         """Temporary untrusted policy builder for transition.
 
         Args:

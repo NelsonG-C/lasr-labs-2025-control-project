@@ -1,3 +1,4 @@
+# pyright: reportUnknownParameterType=false, reportMissingParameterType=false
 import json
 from typing import Any, Callable, Dict, List, Literal
 

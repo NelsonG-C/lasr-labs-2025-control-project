@@ -32,7 +32,7 @@ from lasr_labs_2025_control_project.utils.numerical_pipeline.visualization impor
 load_dotenv()
 
 
-def main():
+def main()):  # type: ignore
     models = {
         "4.1": "openai/gpt-4.1",
         "4.1 Finetuned": "openai/ft:gpt-4.1-2025-04-14:lasr-labs::CC5IeIFO",

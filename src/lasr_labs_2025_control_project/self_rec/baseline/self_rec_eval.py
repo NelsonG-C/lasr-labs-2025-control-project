@@ -1,3 +1,4 @@
+# pyright: reportUnknownParameterType=false, reportMissingParameterType=false
 import logging
 from pathlib import Path
 from typing import Any

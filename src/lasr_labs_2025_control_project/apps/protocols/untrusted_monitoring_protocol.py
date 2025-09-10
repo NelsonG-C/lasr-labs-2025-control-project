@@ -15,8 +15,8 @@ from typing import Any
 
 @control_agent  # type: ignore
 def untrusted_monitoring_protocol(
-    policy_builder: Any = Field(default_factory=policy_gate),  # AgentBuilder
-    monitor_builder: Any = Field(default_factory=basic_monitor),  # AgentBuilder
+    policy_builder: Any = Field(default_factory=policy_gate),  # AgentBuilder # type: ignore
+    monitor_builder: Any = Field(default_factory=basic_monitor),  # AgentBuilder # type: ignore
 ) -> Any:  # AgentBuilderType
     """Build an untrusted monitor agent that combines policy and monitor.
 
@@ -28,7 +28,7 @@ def untrusted_monitoring_protocol(
         An agent that combines the policy and monitor.
     """
 
-    def untrusted_monitor(task_metadata: Any) -> Any:  # ControlTaskMetadata -> Agent
+    def untrusted_monitor(task_metadata: Any) -> Any:  # ControlTaskMetadata -> Agent # type: ignore
         """A protocol that applies monitoring to policy outputs.
 
         Args:
@@ -38,7 +38,7 @@ def untrusted_monitoring_protocol(
         policy = policy_builder(task_metadata)
         monitor = monitor_builder(task_metadata)
 
-        async def impl(state: Any, tools: list[Any]) -> Any:  # AgentState, list[Tool] -> AgentState
+        async def impl(state: Any, tools: list[Any]) -> Any:  # AgentState, list[Tool] -> AgentState # type: ignore
             state = await policy(state, tools)
             # Check if there are tool calls and specifically if "submit" is among them
             if state.output.message and state.output.message.tool_calls:

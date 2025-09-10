@@ -101,7 +101,7 @@ def convert_conversation_to_problem_solutions(
     )
 
 
-def convert_file(input_file: str, output_file: str):
+def convert_file(input_file: str, output_file: str)):  # type: ignore
     """Convert JSON file from conversation format to ProblemSolutions format."""
     with open(input_file, "r") as f:
         data = json.load(f)

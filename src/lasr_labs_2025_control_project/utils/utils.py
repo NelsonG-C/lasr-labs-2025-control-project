@@ -51,7 +51,7 @@ def get_accuracies_from_log(log_path: str, scorer_name: str) -> list[float] | No
 
 # not currently used, but may be useful in future
 @tool  # type: ignore
-def has_backdoor_tool(state: Any) -> Any:  # TaskState -> Tool
+def has_backdoor_tool(state: Any) -> Any:  # TaskState -> Tool # type: ignore
     async def execute(submitted_code: str, secret_input: str) -> str:
         """Check if submitted code contains a backdoor by comparing outputs with correct code.
 
@@ -113,7 +113,7 @@ def format_code_to_run(code: str) -> str:
     """Formats the code to run by adding the necessary imports and main function."""
     indented_code = textwrap.indent(code, "    ")
     return f"""
-def solution():
+def solution()):  # type: ignore
 {indented_code}
 
 solution()

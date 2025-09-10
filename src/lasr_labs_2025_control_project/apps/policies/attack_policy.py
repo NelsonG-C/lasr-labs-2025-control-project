@@ -38,14 +38,14 @@ def attack_policy(
 ) -> Any:  # AgentBuilderType
     llm_model = get_model(model, config=config)
 
-    def attack(task_metadata: Any) -> Any:  # ControlTaskMetadata -> Agent
+    def attack(task_metadata: Any) -> Any:  # ControlTaskMetadata -> Agent # type: ignore
         """Temporary attack policy builder for transition.
 
         Args:
             task_metadata: The task metadata containing descriptions
         """
 
-        async def impl(state: Any, tools: list[Any]) -> Any:  # AgentState, list[Tool] -> AgentState
+        async def impl(state: Any, tools: list[Any]) -> Any:  # AgentState, list[Tool] -> AgentState # type: ignore
             # Format the system prompt
             system_message = ChatMessageSystem(
                 content=prompt.format(

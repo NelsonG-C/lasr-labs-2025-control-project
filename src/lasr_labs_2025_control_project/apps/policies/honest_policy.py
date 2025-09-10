@@ -26,14 +26,14 @@ def honest_policy(
 ) -> Any:  # AgentBuilderType
     llm_model = get_model(model, config=config)
 
-    def honest(task_metadata: Any) -> Any:  # ControlTaskMetadata -> Agent
+    def honest(task_metadata: Any) -> Any:  # ControlTaskMetadata -> Agent # type: ignore
         """Honest policy for Untrusted Monitoring.
 
         Args:
             task_metadata: The task metadata containing descriptions
         """
 
-        async def impl(state: Any, tools: list[Any]) -> Any:  # AgentState, list[Tool] -> AgentState
+        async def impl(state: Any, tools: list[Any]) -> Any:  # AgentState, list[Tool] -> AgentState # type: ignore
             # Format the system prompt
             system_message = ChatMessageSystem(
                 content=prompt.format(

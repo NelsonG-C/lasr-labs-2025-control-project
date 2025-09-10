@@ -60,7 +60,7 @@ def new_default(self: JSONEncoder, o: Any) -> Any:
 JSONEncoder.default = new_default
 
 
-def process_data(input_file: str, output_file: str):
+def process_data(input_file: str, output_file: str)):  # type: ignore
     """
     Process the JSON data and convert it to the desired format.
 
@@ -114,7 +114,7 @@ def process_data(input_file: str, output_file: str):
         )
 
 
-def main():
+def main()):  # type: ignore
     """
     Main CLI function for processing JSON data files.
 

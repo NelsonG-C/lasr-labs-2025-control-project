@@ -57,10 +57,10 @@ def basic_monitor(
 ) -> Any:  # AgentBuilderType
     monitor_model = get_model(model)
 
-    def monitor(task_metadata: Any) -> Any:  # ControlTaskMetadata -> Agent
+    def monitor(task_metadata: Any) -> Any:  # ControlTaskMetadata -> Agent # type: ignore
         """A protocol that applies monitoring to policy outputs."""
 
-        async def impl(state: Any, tools: list[Any]) -> Any:  # AgentState, list[Tool] -> AgentState
+        async def impl(state: Any, tools: list[Any]) -> Any:  # AgentState, list[Tool] -> AgentState # type: ignore
             last_message = state.output.message
 
             if last_message.tool_calls is None:

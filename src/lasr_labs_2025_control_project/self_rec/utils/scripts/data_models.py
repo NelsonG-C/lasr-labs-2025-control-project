@@ -147,7 +147,7 @@ class Dataset(BaseModel):
         }
 
     @classmethod
-    def read(cls, file_path: str | Path) -> "Dataset":
+    def read(cls, file_path: str | Path) -> "Dataset": # type: ignore
         file_path = Path(file_path)
         if file_path.is_file():
             dataset = Dataset.model_validate_json(file_path.read_text())
@@ -171,7 +171,7 @@ class Dataset(BaseModel):
     def __iter__(self) -> Iterator[ProblemSolutions]:
         return iter(self.problems)
 
-    def merge(self, other: "Dataset") -> "Dataset":
+    def merge(self, other: "Dataset") -> "Dataset": # type: ignore
         """
         Merge two datasets together. Smartly merges the problems and their solutions, removing duplicates.
         """
@@ -194,7 +194,7 @@ class Dataset(BaseModel):
             problems=merged_problems,
         )
 
-    def filter(self, **kwargs: Any) -> "Dataset":
+    def filter(self, **kwargs: Any) -> "Dataset": # type: ignore
         """
         Filter the dataset based on solution criteria.
 

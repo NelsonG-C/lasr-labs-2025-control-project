@@ -6,7 +6,7 @@ from lasr_labs_2025_control_project.self_rec.baseline.self_rec_eval import (
 )
 
 
-def run_binary_self_rec():
+def run_binary_self_rec()):  # type: ignore
     model_a_name = "claude-3-5-haiku-20241022"
     model_b_name = "claude-3-5-haiku-20241022"
     recognizer_name = model_a_name
@@ -29,7 +29,7 @@ def run_binary_self_rec():
     )
 
 
-def run_individual_self_rec():
+def run_individual_self_rec()):  # type: ignore
     inspect_model = "anthropic/claude-sonnet-4-20250514"
     solution_model = "human_solutions"  # does not need model provider prefix
 

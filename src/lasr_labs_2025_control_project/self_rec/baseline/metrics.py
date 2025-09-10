@@ -1,3 +1,4 @@
+# pyright: reportUnknownParameterType=false, reportMissingParameterType=false
 import numpy as np  # type: ignore
 import scipy.stats as stats  # type: ignore
 from inspect_ai.scorer import Metric, SampleScore, metric  # type: ignore

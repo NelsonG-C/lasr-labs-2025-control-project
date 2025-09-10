@@ -23,7 +23,7 @@ LOGPROBS_USER_PROMPT = (
 
 
 def get_answer_logprobs_from_openai_completion(
-    completion: ChatCompletion,
+    completion: Any,  # ChatCompletion
 ) -> dict[str, Any]:
     """
     Extract YES/NO token logprobs from an OpenAI ChatCompletion result.
@@ -80,7 +80,7 @@ def _format_logprob_prompts(
 
 async def _openai_logprobs_for_item(
     *,
-    client: OpenAI,
+    client: Any,  # OpenAI
     model: str,
     problem: str,
     solution: str,

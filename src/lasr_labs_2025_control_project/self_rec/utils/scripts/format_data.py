@@ -2,7 +2,7 @@ import json
 from typing import List
 
 
-def process_json_file(input_file: str, output_file: str, properties: List[str]):
+def process_json_file(input_file: str, output_file: str, properties: List[str])):  # type: ignore
     """
     Process JSON file and clean specified property in each dict.
 
