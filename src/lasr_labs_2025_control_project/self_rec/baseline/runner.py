@@ -7,10 +7,10 @@ from lasr_labs_2025_control_project.self_rec.baseline.self_rec_eval import (
 
 
 def run_binary_self_rec():
-    model_a_name = "claude-3-5-haiku-20241022"
-    model_b_name = "claude-3-5-haiku-20241022"
+    model_a_name = "o3"
+    model_b_name = "human"
     recognizer_name = model_a_name
-    inspect_model = "openai/o4-mini"
+    inspect_model = "openai/o3"
 
     eval(
         tasks=[
@@ -18,9 +18,9 @@ def run_binary_self_rec():
                 recognizer_model=recognizer_name,
                 model_a=model_a_name,
                 model_b=model_b_name,
-                data_folder="src/lasr_labs_2025_control_project/self_rec/data",
+                data_folder="src/lasr_labs_2025_control_project/self_rec/data/100_sample_eval",
                 experiment_metadata={},
-                reversed=False,
+                reversed=True,
                 same_model_pairing=False,
             )
         ],
@@ -48,5 +48,4 @@ def run_individual_self_rec():
 
 
 if __name__ == "__main__":
-    # run_binary_self_rec()
-    run_individual_self_rec()
+    run_binary_self_rec()

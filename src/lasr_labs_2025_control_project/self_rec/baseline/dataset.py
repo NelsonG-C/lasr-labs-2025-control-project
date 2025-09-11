@@ -23,7 +23,7 @@ def set_dataset(
     dataset = dataset.filter(**experiment_metadata)
     filtered_problems = []
     for problem in dataset:
-        filtered_problem = problem.filter(data_split="train")
+        filtered_problem = problem.filter(data_split="test")
         if len(filtered_problem.solutions) > 0:
             filtered_problems.append(filtered_problem)
     return Dataset(problems=filtered_problems)
@@ -55,11 +55,21 @@ def binary_rec_dataset_filter(
         dataset_b = dataset.filter(model=model_b)
 
         inspect_dataset = pair_datasets(
-            dataset_a, dataset_b, prompt, recognizer_model, reversed
+            dataset_a=dataset_a,
+            dataset_b=dataset_b,
+            prompt=prompt,
+            recognizer_model=recognizer_model,
+            same_model_pairing=same_model_pairing,
+            reversed=reversed,
         )
         if reversed:
             inspect_dataset = pair_datasets(
-                dataset_b, dataset_a, prompt, recognizer_model, reversed
+                dataset_b=dataset_a,
+                dataset_a=dataset_b,
+                prompt=prompt,
+                recognizer_model=recognizer_model,
+                same_model_pairing=same_model_pairing,
+                reversed=reversed,
             )
     return inspect_dataset
 
