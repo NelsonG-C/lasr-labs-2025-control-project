@@ -164,6 +164,33 @@ def process_single_sample(
                 return response.choices[0].message.content
             else:
                 raise ValueError("No text content in Google Gemini response")
+        elif model_provider == "x-ai":
+            client = OpenAI(
+                api_key=os.getenv("OPENROUTER_API_KEY"),
+                base_url="https://openrouter.ai/api/v1",
+            )
+            if not client:
+                raise ValueError("OpenAI client not provided")
+
+            messages = [
+                {
+                    "role": "system",
+                    "content": prompt,
+                },
+                {
+                    "role": "user",
+                    "content": problem,
+                },
+            ]
+            response = client.chat.completions.create(
+                model=f"{model_provider}/{model_name}",
+                messages=messages,
+            )
+
+            if response and response.choices[0].message.content is not None:
+                return response.choices[0].message.content
+            else:
+                raise ValueError("No text content in Google Gemini response")
         elif model_provider == "human":
             if sample.metadata["solutions"][0]:
                 return sample.metadata["solutions"][0]
@@ -214,7 +241,7 @@ def generate_problems(
     Args:
         model_name: Name of the model to use
         num_samples: Number of samples to process
-        model_provider: Provider of the model ('openai' or 'anthropic')
+        model_provider: Provider of the model ('openai', 'anthropic', 'google', 'human', 'x-ai')
         max_workers: Maximum number of concurrent workers
         batch_size: Number of samples to process in each batch
     """
@@ -236,7 +263,7 @@ def generate_problems(
         "src/lasr_labs_2025_control_project/self_rec/data/100_sample_eval"
     )
     output_dir.mkdir(parents=True, exist_ok=True)
-    results_file = output_dir / f"{uuid4()}.json"
+    results_file = output_dir / f"{model_name}_{uuid4()}.json"
 
     # Initialize clients
     openai_client = None
@@ -335,7 +362,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-P",
         "--provider",
-        choices=["openai", "anthropic", "google", "human"],
+        choices=["openai", "anthropic", "google", "human", "x-ai"],
         default="anthropic",
         help="AI model provider (default: anthropic)",
     )
