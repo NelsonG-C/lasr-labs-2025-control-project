@@ -113,6 +113,7 @@ def build_logprob_caller(
     base_delay: float = 1.0,
     backoff_factor: float = 2.0,
     top_logprobs: int = 20,
+    limit: int | None = None,
     system_prompt: Optional[str] = None,
     user_prompt: Optional[str] = None,
 ) -> Callable[[Sequence[dict[str, str]]], Awaitable[list[dict[str, Any]]]]:
@@ -198,6 +199,8 @@ def build_logprob_caller(
                 else:
                     raise ValueError(f"Unsupported model provider: {provider}")
 
+        # limit the code based on the limit parameter
+        items = items if limit is None else items[:limit]
         tasks = [asyncio.create_task(_one(it)) for it in items]
         return await asyncio.gather(*tasks)
 

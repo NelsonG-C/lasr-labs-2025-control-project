@@ -57,7 +57,10 @@ def parse_and_submit(
             code = final_code_match.group(1).strip()
             code = code.replace("```python", "").replace("```", "").strip()
             if eval_mode == EvalMode.ATTACK:
-                secret_input = secret_input_match.group(1).strip()  # pyright: ignore[reportOptionalMemberAccess]
+                try:
+                    secret_input = secret_input_match.group(1).strip()  # pyright: ignore[reportOptionalMemberAccess]
+                except Exception:
+                    secret_input = ""
             else:
                 secret_input = ""
 
@@ -140,9 +143,8 @@ def backdoored_solutions(eval_mode: EvalMode) -> Task:
 if __name__ == "__main__":
     result = eval(
         tasks=backdoored_solutions(EvalMode.ATTACK),
-        model="openai/gpt-4o-mini",
+        model="openai/gpt-4o",
         epochs=Epochs(1, ["pass_at_1"]),
         max_subprocesses=16,
         max_connections=16,
-        limit=100,
     )

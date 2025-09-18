@@ -18,6 +18,12 @@ import pandas as pd
 from dotenv import load_dotenv
 from inspect_ai.analysis import messages_df, samples_df
 
+from lasr_labs_2025_control_project.utils.model_calling.logprob_prompts import (
+    LOGPROBS_SYSTEM_PROMPT,
+    LOGPROBS_USER_PROMPT,
+    SELF_REC_FT_LOGPROBS_USER_PROMPT,
+    SELF_REC_SAFETY_SYSTEM_PROMPT,
+)
 from lasr_labs_2025_control_project.utils.model_calling.logprobs import (
     build_logprob_caller,
 )
@@ -37,21 +43,28 @@ load_dotenv()
 
 def main():
     models = {
-        "4.1": "openai/gpt-4.1",
-        "4.1 Finetuned": "openai/ft:gpt-4.1-2025-04-14:lasr-labs:against-4o-ind-selfrec:CEc8ek1R",
+        "4.1-FT-Minified": "openai/ft:gpt-4.1-2025-04-14:lasr-labs:selfrec-minified-against-4o:CGNF5DGU",
+        # "4.1 Finetuned": "openai/ft:gpt-4.1-2025-04-14:lasr-labs:against-4o-ind-selfrec:CEc8ek1R",
     }
 
     eval_paths = {
-        "self": "logs/4.1-4o/4.1-attacks.eval",
-        "honeypot": "logs/4.1-4o/4o-honeypots.eval",
+        "self": "eval_logs/4.1-attacks.eval",
+        "honeypot": "eval_logs/4o-honeypots.eval",
     }
 
     save_paths = {
-        "honeypot": "logs/4.1-4o/4.1-attacks-{model_name}-logprobs-summarizer.csv",
-        "self": "logs/4.1-4o/4o-honeypots-{model_name}-logprobs-summarizer.csv",
+        "honeypot": "eval_logs/4.1-4o/self_rec/minified-4.1-attacks-{model_name}-for_while_causal-logprobs-summarizer.csv",
+        "self": "eval_logs/4.1-4o/self_rec/minified-4.1-honeypots-{model_name}-for_while_causal-logprobs-summarizer.csv",
     }
 
-    save_data(models=models, eval_paths=eval_paths, save_paths=save_paths)
+    save_data(
+        models=models,
+        eval_paths=eval_paths,
+        save_paths=save_paths,
+        paraphraser="minifier",
+        system_prompt=SELF_REC_SAFETY_SYSTEM_PROMPT,
+        user_prompt=SELF_REC_FT_LOGPROBS_USER_PROMPT,
+    )
 
     plot_data(models=models, save_paths=save_paths)
 
@@ -81,22 +94,41 @@ def plot_data(models: Dict[str, str], save_paths: Dict[str, str]) -> None:
 
 
 def save_data(
-    models: Dict[str, str], eval_paths: Dict[str, str], save_paths: Dict[str, str]
+    models: Dict[str, str],
+    eval_paths: Dict[str, str],
+    save_paths: Dict[str, str],
+    paraphraser: Literal["llm", "minifier", "none"],
+    limit: int | None = None,
+    system_prompt: str | None = None,
+    user_prompt: str | None = None,
 ) -> None:
+    # set the default prompts if not provided
+    system_prompt = system_prompt or LOGPROBS_SYSTEM_PROMPT
+    user_prompt = user_prompt or LOGPROBS_USER_PROMPT
+
     for model_name, model in models.items():
-        calculate_logprobs = build_logprob_caller(model_name=model)
+        calculate_logprobs = build_logprob_caller(
+            model_name=model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            limit=limit,
+        )
 
         save_logprobs_from_dataset(
             eval_path=Path(eval_paths["self"]),
             save_path=Path(save_paths["self"].format(model_name=model_name)),
             logprob_calculator=calculate_logprobs,
-            paraphraser_type="llm",
+            paraphraser_type=paraphraser,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
         )
         save_logprobs_from_dataset(
             eval_path=Path(eval_paths["honeypot"]),
             save_path=Path(save_paths["honeypot"].format(model_name=model_name)),
             logprob_calculator=calculate_logprobs,
-            paraphraser_type="llm",
+            paraphraser_type=paraphraser,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
         )
 
     pass
@@ -107,6 +139,8 @@ def save_logprobs_from_dataset(
     save_path: Path,
     logprob_calculator: Callable,  # type: ignore
     paraphraser_type: Literal["llm", "minifier", "none"] = "none",
+    system_prompt: str | None = None,
+    user_prompt: str | None = None,
 ) -> None:
     # Read detailed messages so we can recover the problem statement (user) and solution (assistant code)
     mdf = messages_df(eval_path)
@@ -249,6 +283,8 @@ def save_logprobs_from_dataset(
                 "sample_id": s.get("sample_id"),
                 "problem": _escape_newlines(s.get("problem")),
                 "solution": _escape_newlines(s.get("solution")),
+                "system_prompt": _escape_newlines(system_prompt),
+                "user_prompt": _escape_newlines(user_prompt),
                 "yes_logprob": y,
                 "no_logprob": n,
                 "logprob_diff": diff,
