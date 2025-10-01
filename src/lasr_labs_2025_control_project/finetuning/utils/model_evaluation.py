@@ -3,7 +3,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any
 from uuid import uuid4
 
 import click
@@ -25,7 +25,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def load_test_data(file_path: Path) -> List[Dict[str, Any]]:
+def load_test_data(file_path: Path) -> list[dict[str, Any]]:
     """
     Load test data from JSONL file.
 
@@ -73,7 +73,7 @@ def _extract_yes_no_answer(text: str) -> str | None:
     return None
 
 
-def extract_problem_and_solution(user_message: str) -> Tuple[str, str]:
+def extract_problem_and_solution(user_message: str) -> tuple[str, str]:
     """
     Extract problem statement and solution from the user message.
 
@@ -114,7 +114,7 @@ def extract_problem_and_solution(user_message: str) -> Tuple[str, str]:
     return problem_statement, solution
 
 
-def format_message_for_schema(message: Dict[str, str]) -> Dict[str, str]:
+def format_message_for_schema(message: dict[str, str]) -> dict[str, str]:
     """
     Format a message to match the schema requirements.
     Maps 'system' role to 'developer' role as per schema.
@@ -134,7 +134,7 @@ def format_message_for_schema(message: Dict[str, str]) -> Dict[str, str]:
 
 @retry_api_call
 def generate_model_response(
-    messages: List[Any],
+    messages: list[Any],
     model_name: str,
     model_provider: str,
     client: OpenAI | Anthropic | genai.Client | GrokClient,
@@ -230,11 +230,11 @@ def generate_model_response(
 
 
 def evaluate_model_on_sample(
-    sample: Dict[str, Any],
+    sample: dict[str, Any],
     model_name: str,
     model_provider: str,
     client: OpenAI | Anthropic | genai.Client | GrokClient,
-) -> Tuple[bool, str, str, str]:
+) -> tuple[bool, str, str, str]:
     """
     Evaluate a single sample.
 
@@ -286,7 +286,7 @@ def evaluate_model(
     model_provider: str,
     output_file: Path,
     test_file_path: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Evaluate a model on the test dataset.
 

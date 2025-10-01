@@ -2,7 +2,7 @@
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Callable, Optional, Union, cast
 
 import numpy as np
 import pandas as pd
@@ -28,11 +28,11 @@ class OptimizationConfig:
     blue_team_replace_fnr: float
 
     blue_team_win_calculator: Callable[
-        [Dict[str, np.ndarray]], Tuple[np.ndarray, Dict[str, np.ndarray]]
+        [dict[str, np.ndarray]], tuple[np.ndarray, dict[str, np.ndarray]]
     ]
 
     # Optional data for reference
-    monitor_roc_fn_metadata: Dict[str, Any]
+    monitor_roc_fn_metadata: dict[str, Any]
 
     def __repr__(self):
         return (
@@ -51,12 +51,12 @@ class OptimizationResult:
         safety: float  (blue_team_win_rate)
         usefulness: float (1 - blue_team_replace_fnr)
         blue_team_replace_fnr: float
-        best_parameters: Dict[str, float]
-        history: List[Dict[str, float]]
+        best_parameters: dict[str, float]
+        history: list[dict[str, float]]
     """
 
     config: OptimizationConfig = field()
-    results: List[Dict[str, Any]] = field(default_factory=list)
+    results: list[dict[str, Any]] = field(default_factory=list)
 
     # --- Backwards compatibility helpers ---
     @property
@@ -66,7 +66,7 @@ class OptimizationResult:
         return max(r.get("safety", float("-inf")) for r in self.results)
 
     @property
-    def best_parameters(self) -> Dict[str, float]:
+    def best_parameters(self) -> dict[str, float]:
         if not self.results:
             return {}
         # return parameters from the highest safety run
@@ -81,7 +81,7 @@ class OptimizationResult:
         auc_match = re.search(r"<auc_roc>(.*?)</auc_roc>", roc_doc)
         auc_roc = float(auc_match.group(1)) if auc_match else "N/A"
         assessment = get_assessment(self.best_score)
-        replace_fnrs: List[str] = []
+        replace_fnrs: list[str] = []
         for r in self.results:
             val = r.get("blue_team_replace_fnr")
             if isinstance(val, (int, float)):
@@ -163,7 +163,7 @@ def _optimize_single_parameter_set(
     config: OptimizationConfig,
     max_iterations: int = 100,
     grid_squares_per_iteration: int = 10,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Run parameter optimization using the provided configuration.
 
     Args:
@@ -213,7 +213,7 @@ def _optimize_single_parameter_set(
 
 def optimize_parameters(
     base_config: OptimizationConfig,
-    replace_fnr_values: Optional[List[float]] = None,
+    replace_fnr_values: Optional[list[float]] = None,
     max_iterations: int = 100,
     grid_squares_per_iteration: int = 10,
 ) -> OptimizationResult:
@@ -241,14 +241,14 @@ def optimize_parameters(
             - safety: float (optimized blue team win rate)
             - usefulness: float (1 - replace_fnr)
             - blue_team_replace_fnr: float (the fixed value used)
-            - best_parameters: Dict[str, float] (optimized free parameters)
+            - best_parameters: dict[str, float] (optimized free parameters)
             - history: Optimization history for that run
     """
 
     if replace_fnr_values is None:
         replace_fnr_values = [0, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 0.75, 1.0]
 
-    sweep_results: List[Dict[str, Any]] = []
+    sweep_results: list[dict[str, Any]] = []
 
     for replace_fnr in replace_fnr_values:
         # Build a fresh win calculator with the new fixed replace_fnr
@@ -279,12 +279,12 @@ def optimize_parameters(
                 "usefulness": 1 - replace_fnr,
                 "blue_team_replace_fnr": float(replace_fnr),
                 "best_parameters": cast(
-                    Dict[str, float], raw_result["best_parameters"]
+                    dict[str, float], raw_result["best_parameters"]
                 ),
                 "outcome_distribution": cast(
-                    Dict[str, float], raw_result.get("outcome_distribution", {})
+                    dict[str, float], raw_result.get("outcome_distribution", {})
                 ),
-                "history": cast(List[Dict[str, float]], raw_result["history"]),
+                "history": cast(list[dict[str, float]], raw_result["history"]),
             }
         )
 
@@ -296,7 +296,7 @@ def build_blue_team_win_calculator(
     blue_team_budget_fraction: float,
     blue_team_replace_fnr: float,
     roc_function: DoubleROCFunctionType,
-) -> Callable[[Dict[str, np.ndarray]], Tuple[np.ndarray, Dict[str, np.ndarray]]]:
+) -> Callable[[dict[str, np.ndarray]], tuple[np.ndarray, dict[str, np.ndarray]]]:
     """Build a win probability calculator for the blue team
 
     Args:
@@ -306,8 +306,8 @@ def build_blue_team_win_calculator(
     """
 
     def calculate_blue_team_win(
-        params: Dict[str, np.ndarray],
-    ) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
+        params: dict[str, np.ndarray],
+    ) -> tuple[np.ndarray, dict[str, np.ndarray]]:
         blue_team_honeypot_fraction = params["blue_team_honeypot_fraction"]
         red_team_roc_threshold = params["red_team_roc_threshold"]
         red_team_p_attack = params["red_team_p_attack"]
@@ -399,14 +399,14 @@ def get_assessment(score: float) -> str:
 
 
 def grid_search(
-    param_data: Dict[str, Dict[str, Union[str, float]]],
+    param_data: dict[str, dict[str, Union[str, float]]],
     function: Callable[
-        [Dict[str, np.ndarray]], Tuple[np.ndarray, Dict[str, np.ndarray]]
+        [dict[str, np.ndarray]], tuple[np.ndarray, dict[str, np.ndarray]]
     ],
     max_iterations: int,
     grid_squares_per_iteration: int,
     tolerance: float,
-) -> Dict[str, Union[float, Dict[str, float], List[Dict[str, float]]]]:
+) -> dict[str, Union[float, dict[str, float], list[dict[str, float]]]]:
     """Adversarial coordinate grid search.
 
     For each parameter with a range [min, max], a scale (linear|log), and a direction
@@ -417,16 +417,16 @@ def grid_search(
     parameter's local search interval is then "zoomed in" around the chosen candidate.
 
     Args:
-        param_data: Dict mapping parameter name -> {min, max, scale, ascend_or_descend}
+        param_data: dict mapping parameter name -> {min, max, scale, ascend_or_descend}
         function: Objective function returning a scalar np.ndarray (higher is better)
         max_iterations: Maximum number of outer iterations (full passes over parameters)
         grid_squares_per_iteration: Number of grid points per parameter per update (>= 2)
         tolerance: Early-stop threshold on objective change
 
     Returns:
-        Dict with keys:
+        dict with keys:
             - best_value: float (objective at final params)
-            - best_params: Dict[str, float]
+            - best_params: dict[str, float]
             - history: List of dicts with per-iteration objective and parameters
     """
     # Initialize current parameters at the midpoint of each range

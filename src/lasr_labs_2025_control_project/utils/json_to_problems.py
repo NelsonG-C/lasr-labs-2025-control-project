@@ -1,20 +1,20 @@
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
 class Solution:
     model: str
     solution: str
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 @dataclass
 class ProblemSolutions:
     apps_problem_id: str
     problem_statement: str
-    solutions: List[Solution]
+    solutions: list[Solution]
 
 
 def extract_code_from_content(content: str) -> str:

@@ -6,7 +6,6 @@ import logging
 import token as token_mod
 import tokenize
 from pathlib import Path
-from typing import Dict, List
 
 from inspect_ai.log import read_eval_log
 
@@ -32,22 +31,22 @@ def remove_comments(source: str) -> str:
     if source == "":
         return ""
 
-    lines: List[str] = source.splitlines(keepends=True)
+    lines: list[str] = source.splitlines(keepends=True)
     if not lines:
         return ""
 
     num_lines = len(lines)
-    delete_line: List[bool] = [False] * num_lines
+    delete_line: list[bool] = [False] * num_lines
     # For inline comments, cut the line at this column (0-based). Keep the
     # smallest column if multiple comments somehow appear.
-    cut_at_col: Dict[int, int] = {}
+    cut_at_col: dict[int, int] = {}
 
     # Track whether a line already contains code tokens before a comment.
-    line_has_code: Dict[int, bool] = {}
+    line_has_code: dict[int, bool] = {}
 
     # Block stack to detect def/class suites for docstring removal.
     # Each frame: {"type": "module"|"def"|"class"|"other", "awaiting_doc": bool}
-    block_stack: List[Dict[str, object]] = [{"type": "module", "awaiting_doc": True}]
+    block_stack: list[dict[str, object]] = [{"type": "module", "awaiting_doc": True}]
     pending_suite: str | None = None  # pending type to push on next INDENT
     saw_async = False
 
@@ -153,7 +152,7 @@ def remove_comments(source: str) -> str:
             top["awaiting_doc"] = False
 
     # Reconstruct lines applying deletions and inline comment cuts
-    out_lines: List[str] = []
+    out_lines: list[str] = []
     for idx, line in enumerate(lines):
         if delete_line[idx]:
             continue

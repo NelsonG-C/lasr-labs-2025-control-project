@@ -202,7 +202,7 @@ def analyse_eval(
                 {
                     "yes_logprob": y,
                     "no_logprob": n,
-                    "collusion_score": diff,
+                    "untrusted_collusion_score": diff,
                     "collusion_monitor_system_prompt": untrusted_collusion_prompt_metadata.get(
                         "system_prompt"
                     ),

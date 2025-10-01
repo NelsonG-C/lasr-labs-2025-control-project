@@ -3,8 +3,6 @@ Runs apps scorers on the solutions from the eval logs without generating new sol
 Make sure AppsSetting is configured to use same data split as in the eval log.
 """
 
-from typing import Literal
-
 import python_minifier
 from inspect_ai import Task, task
 from inspect_ai.model import (
@@ -33,6 +31,7 @@ from lasr_labs_2025_control_project.scripts.helpers.eval_to_dataset import (
 from lasr_labs_2025_control_project.scripts.helpers.metadata_dataclasses import (
     ModelInfo,
     TransformInfo,
+    TransformType,
 )
 
 
@@ -67,7 +66,10 @@ def minify_solution() -> Solver:
         state.output = ModelOutput.from_message(response)
 
         store().set("transformed_solution", output)
-        store().set("transform_info", TransformInfo(type="minify"))
+        store().set(
+            "transform_info",
+            TransformInfo(type=TransformType.MINIFIER, model_info=None),
+        )
 
         return state
 
@@ -117,7 +119,7 @@ def summarize_solution(
         store().set("transformed_solution", state.output.completion)
         store().set(
             "transform_info",
-            TransformInfo(type="summarize", model_info=summarizer_info),
+            TransformInfo(type=TransformType.LLM, model_info=summarizer_info),
         )
 
         return state
@@ -142,7 +144,7 @@ def create_named_scorer(scorer_name: str) -> Scorer:
 @task
 def transform_solutions(
     eval_log_path: str,
-    transform_type: Literal["summarize", "minify"] = "summarize",
+    transform_type: TransformType = TransformType.LLM,
     summarizer_system_prompt: str = LLM_SUMMARIZE_SYSTEM_PROMPT,
     summarizer_base_prompt: str = LLM_SUMMARIZE_BASE_PROMPT,
 ) -> Task:
@@ -162,12 +164,12 @@ def transform_solutions(
     if dataset[0].metadata and "scores" in dataset[0].metadata:
         scorer_names = list(dataset[0].metadata["scores"].keys())
 
-    if transform_type == "summarize":
+    if transform_type == TransformType.LLM:
         solver = summarize_solution(
             summarizer_system_prompt,
             summarizer_base_prompt,
         )
-    elif transform_type == "minify":
+    elif transform_type == TransformType.MINIFIER:
         solver = minify_solution()
     else:
         raise ValueError(f"Invalid transform type: {transform_type}")
@@ -176,7 +178,7 @@ def transform_solutions(
         dataset=dataset,
         solver=solver,
         metadata={
-            "transform_info": TransformInfo(type=transform_type),
+            "transform_info": TransformInfo(type=transform_type, model_info=None),
         },
         scorer=[create_named_scorer(scorer_name) for scorer_name in scorer_names],
     )

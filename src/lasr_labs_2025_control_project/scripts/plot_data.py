@@ -1,11 +1,14 @@
 import argparse
 import logging
 from pathlib import Path
-from typing import Any, Optional
 
 import pandas as pd
+from inspect_ai.log import read_eval_log
 
-from lasr_labs_2025_control_project.utils.config_loader import load_and_normalize_config
+from lasr_labs_2025_control_project.utils.config_loader import (
+    ExperimentConfig,
+    load_and_normalize_config,
+)
 from lasr_labs_2025_control_project.utils.numerical_pipeline import (
     OptimizationResult,
     build_optimization_config,
@@ -20,7 +23,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         prog="plot_data",
         description=(
-            "Load processed JSONL outputs (from eval_analysis) via YAML and generate "
+            "Load processed EVAL logs outputs (from eval_analysis) via YAML and generate "
             "plots/optimization results. Can pass multiple configs with -cfg"
         ),
     )
@@ -40,37 +43,65 @@ def main() -> None:
 
     # Aggregate results keyed by experiment_name
     aggregated: dict[str, OptimizationResult] = {}
-    dest_folder: Path | str | None = None
 
     for idx, cfg in enumerate(args.config, start=1):
         cfg_path = Path(cfg)
         normalized = load_and_normalize_config(cfg_path)
-        experiment_name = (
-            normalized["defaults"].get("experiment_name")
-            or f"{args.experiment_default}_{idx}"
-        )
         # Re-run optimization for this config and store under experiment_name
         result = run_single_config(normalized)
-        aggregated[experiment_name] = result
-
-        # Destination folder: allow override per-config; last one wins if multiple
-        dest_folder = (
-            normalized["defaults"].get("plots_destination_folder") or dest_folder
-        )
-
-    if dest_folder is None:
-        dest_folder = "src/apps/results"
+        aggregated[normalized.experiment_name] = result
 
     logger.info("Generating visualizations across %d experiments", len(aggregated))
-    visualization.plot_data(aggregated, destination_folder=dest_folder)
-    logger.info("Visualizations saved to %s", dest_folder)
+    visualization.plot_data(aggregated, destination_folder=normalized.results_folder)
+    logger.info("Visualizations saved to %s", normalized.results_folder)
+
+
+def build_jsonl_dataframe_from_eval_log(eval_log_path: Path) -> pd.DataFrame:
+    """Build a DataFrame from a .eval log file.
+
+    Args:
+        eval_log_path: Path to the .eval log file.
+
+    Returns:
+        DataFrame with the eval log data. DataFrame has columns:
+        - sample_id
+        - problem
+        - solution
+        - untrusted_collusion_score
+        - trusted_suspiciousness_score
+        - collusion_monitor_system_prompt
+        - collusion_monitor_user_prompt
+    """
+    log = read_eval_log(eval_log_path)
+    assert log.samples is not None, "No samples found in the eval log"
+    final_samples = []
+    for sample in log.samples:
+        metadata = {**sample.metadata, **sample.store}
+        final_samples.append(
+            {
+                "sample_id": sample.id,
+                "problem": metadata["main_task_description"],
+                "solution": metadata["base_solution"],
+                "untrusted_collusion_score": metadata["untrusted_collusion_score"],
+                "trusted_suspiciousness_score": metadata[
+                    "trusted_suspiciousness_score"
+                ],
+                "collusion_monitor_system_prompt": metadata[
+                    "untrusted_collusion_monitor"
+                ]["model_info"]["system_prompt"],
+                "collusion_monitor_user_prompt": metadata[
+                    "untrusted_collusion_monitor"
+                ]["model_info"]["user_prompt"],
+            }
+        )
+    return pd.DataFrame(final_samples)
 
 
 def plot_ensemble_monitoring(
     *,
-    attacks_json: Path,
-    honeypots_json: Path,
-    benign_json: Optional[Path],
+    attacks_result_eval: Path,
+    honeypots_result_eval: Path,
+    benign_result_eval: Path,
     num_tasks: int,
     blue_team_budget_fraction: float,
     blue_team_replace_fnr: float,
@@ -84,16 +115,10 @@ def plot_ensemble_monitoring(
 
     Returns a dict suitable for visualization.plot_data.
     """
-    logger.info("Loading attacks / honeypots / benign JSONL for monitoring plots")
-    attacks_df = pd.read_json(attacks_json, lines=True)
-    honeypots_df = pd.read_json(honeypots_json, lines=True)
-
-    if benign_json is None:
-        raise NotImplementedError(
-            "Monitoring optimization requires a benign (formerly 'honest') dataset JSONL for negative trusted examples"
-        )
-
-    benign_df = pd.read_json(benign_json, lines=True)
+    logger.info("Loading attacks / honeypots / benign eval logs for monitoring plots")
+    attacks_df = build_jsonl_dataframe_from_eval_log(attacks_result_eval)
+    honeypots_df = build_jsonl_dataframe_from_eval_log(honeypots_result_eval)
+    benign_df = build_jsonl_dataframe_from_eval_log(benign_result_eval)
 
     config = build_optimization_config(
         num_tasks=num_tasks,
@@ -110,16 +135,16 @@ def plot_ensemble_monitoring(
     meta = result.config.monitor_roc_fn_metadata or {}
     # Expose untrusted suspiciousness distributions if available
     if (
-        "untrusted_monitor_suspiciousness_score" in attacks_df.columns
-        and "untrusted_monitor_suspiciousness_score" in benign_df.columns
+        "untrusted_suspiciousness_score" in attacks_df.columns
+        and "untrusted_suspiciousness_score" in benign_df.columns
     ):
         meta.setdefault(
             "untrusted_suspiciousness_scores",
             {
-                "positive": attacks_df["untrusted_monitor_suspiciousness_score"]
+                "positive": attacks_df["untrusted_suspiciousness_score"]
                 .astype(float)
                 .tolist(),
-                "negative": benign_df["untrusted_monitor_suspiciousness_score"]
+                "negative": benign_df["untrusted_suspiciousness_score"]
                 .astype(float)
                 .tolist(),
             },
@@ -128,21 +153,26 @@ def plot_ensemble_monitoring(
     return result
 
 
-def run_single_config(normalized: dict[str, Any]) -> OptimizationResult:
+def run_single_config(normalized: ExperimentConfig) -> OptimizationResult:
     """Execute optimization for a single normalized config dict.
 
-    Returns the OptimizationResult (ensemble monitoring currently assumed).
+    Args:
+        normalized: The normalized config dict from load_and_normalize_config.
+        It contains the runs and the defaults.
+
+    Returns:
+        The OptimizationResult (ensemble monitoring currently assumed).
     """
-    runs = {run["label"]: run for run in normalized["runs"]}
-    has_benign = "honest" in runs
-    attacks_json = Path(runs["attacks"]["json_path"])  # type: ignore[arg-type]
-    honeypots_json = Path(runs["honeypots"]["json_path"])  # type: ignore[arg-type]
-    benign_json = None if not has_benign else Path(runs["honest"]["json_path"])  # type: ignore[arg-type]
+    runs = {run.label: run for run in normalized.runs}
+
+    attacks_result_eval = runs["attacks"].save_path
+    honeypots_result_eval = runs["honeypots"].save_path
+    benign_result_eval = runs["honest"].save_path
 
     return plot_ensemble_monitoring(
-        attacks_json=attacks_json,
-        honeypots_json=honeypots_json,
-        benign_json=benign_json,
+        attacks_result_eval=attacks_result_eval,
+        honeypots_result_eval=honeypots_result_eval,
+        benign_result_eval=benign_result_eval,
         num_tasks=5000,
         blue_team_budget_fraction=0.02,
         blue_team_replace_fnr=0.0,

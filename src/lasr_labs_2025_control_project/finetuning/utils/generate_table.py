@@ -9,7 +9,7 @@ The evaluation results must follow a specific schema format, see `eval_schema.js
 import json
 import re
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import click
 
@@ -51,7 +51,7 @@ def extract_answer_from_prediction(prediction: str) -> str:
     return ""
 
 
-def load_eval_data(file_path: Path) -> List[Dict[str, Any]]:
+def load_eval_data(file_path: Path) -> list[dict[str, Any]]:
     """
     Load evaluation data from JSONL file.
 
@@ -76,7 +76,7 @@ def load_eval_data(file_path: Path) -> List[Dict[str, Any]]:
     return data
 
 
-def extract_table_data(record: Dict[str, Any]) -> Dict[str, str]:
+def extract_table_data(record: dict[str, Any]) -> dict[str, str]:
     """
     Extract table data from a single evaluation record.
 

@@ -95,7 +95,7 @@ def main() -> None:
         )
 
         normalized = load_and_normalize_config(config_path)
-        runs = normalized["runs"]
+        runs = normalized["runs"]  # type: ignore
 
         logger.info("Starting configured runs")
         for i, run in enumerate(runs, start=1):

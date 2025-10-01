@@ -1,5 +1,5 @@
 from itertools import product
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -8,7 +8,7 @@ from scipy.interpolate import RegularGridInterpolator
 
 TParameterizedROCFunctionType = Callable[
     [Union[float, np.ndarray]],
-    Union[Tuple[float, float], Tuple[np.ndarray, np.ndarray]],
+    Union[tuple[float, float], tuple[np.ndarray, np.ndarray]],
 ]
 FPRParameterizedROCFunctionType = Callable[
     [Union[float, np.ndarray]],
@@ -16,7 +16,7 @@ FPRParameterizedROCFunctionType = Callable[
 ]
 DoubleROCFunctionType = Callable[
     [Union[float, np.ndarray], Union[float, np.ndarray]],
-    Union[Tuple[float, float], Tuple[np.ndarray, np.ndarray]],
+    Union[tuple[float, float], tuple[np.ndarray, np.ndarray]],
 ]
 
 
@@ -25,18 +25,18 @@ def build_roc_function(
     attacks_df: Optional[pd.DataFrame] = None,
     honeypots_df: Optional[pd.DataFrame] = None,
     benign_df: Optional[pd.DataFrame] = None,
-    um_collusion_scores: Optional[Dict[str, List[float]]] = None,
-    tm_suspiciousness_scores: Optional[Dict[str, List[float]]] = None,
-    ensemble_monitor_scores: Optional[Dict[str, np.ndarray]] = None,
+    um_collusion_scores: Optional[dict[str, list[float]]] = None,
+    tm_suspiciousness_scores: Optional[dict[str, list[float]]] = None,
+    ensemble_monitor_scores: Optional[dict[str, np.ndarray]] = None,
     disable_ensemble_monitor: bool = True,
     disable_trusted_monitor: bool = False,
     disable_untrusted_monitor: bool = False,
-) -> Tuple[DoubleROCFunctionType, Dict[str, Any]]:
+) -> tuple[DoubleROCFunctionType, dict[str, Any]]:
     """Build a unified ROC function from raw DataFrames or precomputed score dicts.
 
     Preferred modern usage supplies attacks_df, honeypots_df, benign_df with columns:
-      - collusion_score (untrusted / collusion monitor)
-      - trusted_monitor_suspiciousness_score (trusted monitor)
+      - untrusted_collusion_score (untrusted / collusion monitor)
+      - trusted_suspiciousness_score (trusted monitor)
 
     Legacy usage may still pass um_collusion_scores / tm_suspiciousness_scores.
     """
@@ -46,25 +46,21 @@ def build_roc_function(
         empty_honeypots = pd.Series(index=honeypots_df.index, dtype=float)
         empty_benign = pd.Series(index=benign_df.index, dtype=float)
         um_collusion_scores = {
-            "positive": attacks_df.get("collusion_score", empty_attacks)
+            "positive": attacks_df.get("untrusted_collusion_score", empty_attacks)
             .astype(float)
             .dropna()
             .tolist(),
-            "negative": honeypots_df.get("collusion_score", empty_honeypots)
+            "negative": honeypots_df.get("untrusted_collusion_score", empty_honeypots)
             .astype(float)
             .dropna()
             .tolist(),
         }
         tm_suspiciousness_scores = {
-            "positive": attacks_df.get(
-                "trusted_monitor_suspiciousness_score", empty_attacks
-            )
+            "positive": attacks_df.get("trusted_suspiciousness_score", empty_attacks)
             .astype(float)
             .dropna()
             .tolist(),
-            "negative": benign_df.get(
-                "trusted_monitor_suspiciousness_score", empty_benign
-            )
+            "negative": benign_df.get("trusted_suspiciousness_score", empty_benign)
             .astype(float)
             .dropna()
             .tolist(),
@@ -75,7 +71,6 @@ def build_roc_function(
         raise NotImplementedError(
             "Ensemble ROC function not currently supported. Please use DataFrame inputs."
         )
-        return build_ensemble_roc_function(ensemble_monitor_scores)
 
     if um_collusion_scores is not None and not disable_untrusted_monitor:
         um_roc_function, um_metadata = build_t_parameterized_roc_function(
@@ -88,7 +83,7 @@ def build_roc_function(
         # No UM => always collude
         def um_roc_function(
             t: Union[float, np.ndarray],
-        ) -> Union[Tuple[float, float], Tuple[np.ndarray, np.ndarray]]:
+        ) -> Union[tuple[float, float], tuple[np.ndarray, np.ndarray]]:
             if isinstance(t, np.ndarray):
                 return np.ones_like(t), np.zeros_like(t)
             else:
@@ -122,7 +117,7 @@ def build_roc_function(
     def uncorrelated_roc_function(
         t: Union[float, np.ndarray],
         fpr_t: Union[float, np.ndarray],
-    ) -> Union[Tuple[float, float], Tuple[np.ndarray, np.ndarray]]:
+    ) -> Union[tuple[float, float], tuple[np.ndarray, np.ndarray]]:
         """
         Given target (tpr+fpr)/2 values and fpr_t values, return corresponding (tpr, fpr) pairs.
 
@@ -154,8 +149,8 @@ def build_roc_function(
 
 
 def auc_roc_from_confusion_matrix(
-    confusion_matrix: Dict[str, int],
-) -> Tuple[float, Dict[str, List[float]]]:
+    confusion_matrix: dict[str, int],
+) -> tuple[float, dict[str, list[float]]]:
     """Calculate AUC-ROC from label counts.
 
     Args:
@@ -195,9 +190,9 @@ def auc_roc_from_confusion_matrix(
 
 
 def calculate_tpr_fpr_from_scores(
-    positive_scores: List[float],
-    negative_scores: List[float],
-) -> Tuple[List[float], List[float]]:
+    positive_scores: list[float],
+    negative_scores: list[float],
+) -> tuple[list[float], list[float]]:
     """Calculate TPR and FPR values from positive and negative scores.
 
     Args:
@@ -265,7 +260,7 @@ def calculate_tpr_fpr_from_scores(
 def generate_tpr_and_fpr_values(
     auc_roc: float,
     num_values: int = 100,
-) -> Tuple[List[float], List[float]]:
+) -> tuple[list[float], list[float]]:
     """Using normal distributions, generate tpr and fpr values"""
 
     mu_pos = (np.sqrt(2) * stats.norm.ppf(auc_roc)).item()
@@ -281,10 +276,10 @@ def generate_tpr_and_fpr_values(
 
 def build_t_parameterized_roc_function(
     auc_roc: Optional[float],
-    positive_rate_values: Optional[Dict[str, List[float]]],
-    confidence_scores: Optional[Dict[str, List[float]]],
-    confusion_matrix: Optional[Dict[str, int]],
-) -> Tuple[TParameterizedROCFunctionType, Dict[str, Any]]:
+    positive_rate_values: Optional[dict[str, list[float]]],
+    confidence_scores: Optional[dict[str, list[float]]],
+    confusion_matrix: Optional[dict[str, int]],
+) -> tuple[TParameterizedROCFunctionType, dict[str, Any]]:
     # Determine which input method was used and get TPR/FPR values
     if positive_rate_values is not None:
         assert positive_rate_values.keys() == {
@@ -352,7 +347,7 @@ def build_t_parameterized_roc_function(
     # In case of ties, we'll use the first occurrence (implicitly handled by searchsorted)
     def inverse_interpolate(
         average: Union[float, np.ndarray],
-    ) -> Union[Tuple[float, float], Tuple[np.ndarray, np.ndarray]]:
+    ) -> Union[tuple[float, float], tuple[np.ndarray, np.ndarray]]:
         """
         Given target (tpr+fpr)/2 values, return corresponding (tpr, fpr) pairs.
 
@@ -421,8 +416,8 @@ def build_t_parameterized_roc_function(
 
 
 def build_ensemble_roc_function(
-    both_monitors_scores: Dict[str, np.ndarray], n_grid: int = 100
-) -> Tuple[DoubleROCFunctionType, Dict[str, Any]]:
+    both_monitors_scores: dict[str, np.ndarray], n_grid: int = 100
+) -> tuple[DoubleROCFunctionType, dict[str, Any]]:
     """
     Build a fast interpolated function for the disjunctive classifier.
 
@@ -567,9 +562,9 @@ def build_ensemble_roc_function(
         yy = y.astype(float)
         if not increasing:
             yy = -yy
-        v: List[float] = []  # block means
-        vw: List[float] = []  # block weights
-        cnt: List[int] = []  # block lengths (in elements)
+        v: list[float] = []  # block means
+        vw: list[float] = []  # block weights
+        cnt: list[int] = []  # block lengths (in elements)
         for i in range(len(yy)):
             v.append(yy[i])
             vw.append(float(w[i]))
@@ -652,7 +647,7 @@ def build_ensemble_roc_function(
     # Return the combined function mapping (t_u, fpr_t) -> (attack_passes_chance, fpr_u)
     def roc_function(
         t: Union[float, np.ndarray], fpr_T: Union[float, np.ndarray]
-    ) -> Union[Tuple[float, float], Tuple[np.ndarray, np.ndarray]]:
+    ) -> Union[tuple[float, float], tuple[np.ndarray, np.ndarray]]:
         """
         Compute constrained 2D interpolation values for given parameters.
 
@@ -719,8 +714,8 @@ def build_ensemble_roc_function(
 
 
 def build_fpr_parameterized_roc_function(
-    scores: Dict[str, List[float]],
-) -> Tuple[FPRParameterizedROCFunctionType, Dict[str, Any]]:
+    scores: dict[str, list[float]],
+) -> tuple[FPRParameterizedROCFunctionType, dict[str, Any]]:
     """
     Build an interpolator for ROC curves parameterized by fpr.
 

@@ -2,7 +2,7 @@ import asyncio
 import re
 from asyncio import run
 from dataclasses import dataclass
-from typing import Any, Coroutine, Dict, List, cast
+from typing import Any, Coroutine, cast
 
 import python_minifier
 
@@ -11,7 +11,7 @@ from lasr_labs_2025_control_project.utils.model_calling import build_api_caller
 ###############################################################################
 # NOTE: This module was refactored to remove any dependency on the custom
 # ProblemSolutions / Solution data models. Paraphrasers now operate purely on
-# List[str] -> List[str]. All previous functionality (serial/parallel/async
+# list[str] -> list[str]. All previous functionality (serial/parallel/async
 # execution modes, minifier + LLM paraphrasing) is preserved. Metadata
 # attachment is no longer handled here; callers that require provenance should
 # wrap/zip the returned list externally.
@@ -20,7 +20,7 @@ from lasr_labs_2025_control_project.utils.model_calling import build_api_caller
 
 @dataclass(frozen=True)
 class ParaphraserConfig:
-    kwargs: Dict[str, str]
+    kwargs: dict[str, str]
 
     def __post_init__(self):
         paraphraser_type = self.kwargs.get("paraphraser_type")
@@ -52,7 +52,7 @@ class Paraphraser:
     paraphrased strings in the same order.
     """
 
-    paraphraser_kwargs: Dict[str, str]
+    paraphraser_kwargs: dict[str, str]
 
     @classmethod
     def build(cls, config: ParaphraserConfig):
@@ -66,7 +66,7 @@ class Paraphraser:
         raise Exception(f"Unknown paraphraser type: {paraphraser_type}")
 
     # Public sync entrypoint
-    def __call__(self, texts: List[str]) -> List[str]:
+    def __call__(self, texts: list[str]) -> list[str]:
         calling_type = self.paraphraser_kwargs.get("paraphraser_calling_type", "serial")
         if calling_type == "parallel":
             return self._paraphrase_parallel(texts)
@@ -77,20 +77,20 @@ class Paraphraser:
         raise NotImplementedError(f"Unknown paraphraser_calling_type: {calling_type}")
 
     # Internal strategies
-    def _paraphrase_parallel(self, texts: List[str]) -> List[str]:
+    def _paraphrase_parallel(self, texts: list[str]) -> list[str]:
         return run(self.paraphrase_async(texts))
 
-    def _paraphrase_serial(self, texts: List[str]) -> List[str]:
+    def _paraphrase_serial(self, texts: list[str]) -> list[str]:
         return [self._paraphrase_single_text(t) for t in texts]
 
     def _paraphrase_single_text(self, _text: str) -> str:  # pragma: no cover - abstract
         raise NotImplementedError("Implement in subclass")
 
-    async def _paraphrase_async(self, texts: List[str]) -> List[str]:
+    async def _paraphrase_async(self, texts: list[str]) -> list[str]:
         tasks = [asyncio.to_thread(self._paraphrase_single_text, t) for t in texts]
         return await asyncio.gather(*tasks)
 
-    async def paraphrase_async(self, texts: List[str]) -> List[str]:
+    async def paraphrase_async(self, texts: list[str]) -> list[str]:
         return await self._paraphrase_async(texts)
 
     def __init__(self):  # Prevent direct instantiation of the base
@@ -173,7 +173,7 @@ class LLMParaphraser(Paraphraser):
         )
         return response[0]
 
-    async def _paraphrase_async(self, texts: List[str]) -> List[str]:
+    async def _paraphrase_async(self, texts: list[str]) -> list[str]:
         payload = [
             {
                 "system_prompt": self.system_prompt,
