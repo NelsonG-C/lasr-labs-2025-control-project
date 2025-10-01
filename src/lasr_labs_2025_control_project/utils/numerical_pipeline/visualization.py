@@ -75,36 +75,36 @@ def plot_data(
     # Generate both types of ROC curves
     plot_roc_curves(
         data_dict,
-        save_path=str(dest / "untrusted_monitor_roc_curve.png"),
+        save_path=str(dest / "untrusted_monitor_roc_curve.svg"),
         plot_mode="untrusted",
     )
     plot_roc_curves(
         data_dict,
-        save_path=str(dest / "trusted_monitor_roc_curve.png"),
+        save_path=str(dest / "trusted_monitor_roc_curve.svg"),
         plot_mode="trusted",
     )
 
     plot_safety_usefulness_curves(
-        data_dict, save_path=str(dest / "safety_usefulness_curves.png")
+        data_dict, save_path=str(dest / "safety_usefulness_curves.svg")
     )
     # Save the underlying safety/usefulness points to JSONL for downstream analysis
     save_safety_usefulness_jsonl(
         data_dict, save_path=str(dest / "safety_usefulness.jsonl")
     )
-    plot_histograms(data_dict, save_path=str(dest / "histograms.png"))
+    plot_histograms(data_dict, save_path=str(dest / "histograms.svg"))
     plot_attack_score_scatter(
-        data_dict, save_path=str(dest / "attack_scores_scatter.png")
+        data_dict, save_path=str(dest / "attack_scores_scatter.svg")
     )
-    plot_roc_heatmaps(data_dict, save_path=str(dest / "roc_heatmaps.png"))
+    plot_roc_heatmaps(data_dict, save_path=str(dest / "roc_heatmaps.svg"))
     plot_outcome_distributions(
-        data_dict, save_path=str(dest / "outcome_distributions.png")
+        data_dict, save_path=str(dest / "outcome_distributions.svg")
     )
     return
 
 
 def plot_histograms(
     data_dict: Dict[str, OptimizationResult],
-    save_path: str = "src/lasr_labs_2025_control_project/apps/results/histograms.png",
+    save_path: str = "src/lasr_labs_2025_control_project/apps/results/histograms.svg",
 ) -> None:
     dest_path = Path(save_path)
     dest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -266,7 +266,7 @@ def plot_histograms(
         suptitle="TM Suspicion Scores",
         label_names=("Attack", "Benign"),
         palette={"Attack": OI_VERMILION, "Benign": OI_BLUE},
-        out_fname="histograms_trusted.png",
+        out_fname="histograms_trusted.svg",
     )
 
     # 2) untrusted_collusion_scores -> Attack vs Honeypot
@@ -284,7 +284,7 @@ def plot_histograms(
         suptitle="UM Collusion Scores",
         label_names=("Attack", "Honeypot"),
         palette={"Attack": OI_VERMILION, "Honeypot": OI_YELLOW},
-        out_fname="histograms_untrusted_collusion.png",
+        out_fname="histograms_untrusted_collusion.svg",
     )
 
     # 3) untrusted_suspiciousness_scores -> Attack vs Benign
@@ -297,7 +297,7 @@ def plot_histograms(
         suptitle="UM Suspicion Scores",
         label_names=("Attack", "Benign"),
         palette={"Attack": OI_VERMILION, "Benign": OI_BLUE},
-        out_fname="histograms_untrusted_suspiciousness.png",
+        out_fname="histograms_untrusted_suspiciousness.svg",
     )
 
     return
@@ -305,7 +305,7 @@ def plot_histograms(
 
 def plot_attack_score_scatter(
     data_dict: Dict[str, OptimizationResult],
-    save_path: str = "src/lasr_labs_2025_control_project/apps/results/attack_scores_scatter.png",
+    save_path: str = "src/lasr_labs_2025_control_project/apps/results/attack_scores_scatter.svg",
 ) -> None:
     """Per-experiment scatter plots of attack samples' s_T vs s_U with regression.
 
@@ -379,8 +379,8 @@ def plot_attack_score_scatter(
 
     fig, axes_flat = _create_subplot_grid(
         len(per_experiment),
-        width_per=4.5,
-        height_per=3.8,
+        width_per=4,
+        height_per=3,
         suptitle="Attack Scatter",
         axes_titles=[lbl for lbl, _ in per_experiment],
     )
@@ -399,9 +399,12 @@ def plot_attack_score_scatter(
                 lr = cast(Any, linregress(s_T, s_U))
                 x_line = np.linspace(float(np.min(s_T)), float(np.max(s_T)), 50)
                 y_line = lr.slope * x_line + lr.intercept
-                ax.plot(
-                    x_line,
-                    y_line,
+                line_df = pd.DataFrame({"tm_score": x_line, "um_score": y_line})
+                sns.lineplot(
+                    data=line_df,
+                    x="tm_score",
+                    y="um_score",
+                    ax=ax,
                     color=OI_VERMILION,
                     linewidth=1.5,
                     label=f"$R^2={lr.rvalue**2:.3g}$, $p={lr.pvalue:.2g}$",
@@ -423,7 +426,7 @@ def plot_attack_score_scatter(
 
 def plot_roc_heatmaps(
     data_dict: Dict[str, OptimizationResult],
-    save_path: str = "src/lasr_labs_2025_control_project/apps/results/roc_heatmaps.png",
+    save_path: str = "src/lasr_labs_2025_control_project/apps/results/roc_heatmaps.svg",
 ) -> None:
     # Filter to results whose monitor is an ensemble
     items = [(label, result) for label, result in data_dict.items()]
@@ -505,7 +508,7 @@ def plot_roc_heatmaps(
 
 def plot_roc_curves(
     data_dict: Dict[str, OptimizationResult],
-    save_path: str = "src/lasr_labs_2025_control_project/apps/results/roc_curve.png",
+    save_path: str = "src/lasr_labs_2025_control_project/apps/results/roc_curve.svg",
     plot_mode: str = "untrusted",  # "untrusted" or "trusted"
 ) -> None:
     """
@@ -518,7 +521,7 @@ def plot_roc_curves(
             - "untrusted": Plot u_tpr vs attack_pass_rate (roc_fn(x, 0))
             - "trusted": Plot 1-attack_pass_rate vs t_tpr (roc_fn(0, t_fpr))
     """
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(4, 3))
 
     # build a single dataframe containing all ROC curves, then plot with seaborn
     rows = []
@@ -602,6 +605,18 @@ def plot_roc_curves(
                     {"fpr": float(fp), "tpr": float(tp), "label": display_label}
                 )
 
+    label_order: list[str] = []
+    for entries in (rows, scatter_rows):
+        for rec in entries:
+            lbl = rec["label"]
+            if lbl not in label_order:
+                label_order.append(lbl)
+
+    palette_map: dict[str, tuple[float, float, float]] | None = None
+    if label_order:
+        colors = sns.color_palette("colorblind", n_colors=len(label_order))
+        palette_map = dict(zip(label_order, colors))
+
     if rows:
         df = pd.DataFrame(rows)
         # Plot raw points (no aggregation) and show markers for every datapoint.
@@ -612,6 +627,8 @@ def plot_roc_curves(
             x="fpr",
             y="tpr",
             hue="label",
+            hue_order=label_order if label_order else None,
+            palette=palette_map,
             ax=ax,
             estimator=None,
             sort=False,
@@ -625,6 +642,8 @@ def plot_roc_curves(
             x="fpr",
             y="tpr",
             hue="label",
+            hue_order=label_order if label_order else None,
+            palette=palette_map,
             ax=ax,
             legend=False,
             s=60,
@@ -635,11 +654,11 @@ def plot_roc_curves(
     if plot_mode == "untrusted":
         ax.set_xlabel("FPR (Attack Pass Rate)")
         ax.set_ylabel("TPR (Untrusted Monitor Detection Rate)")
-        ax.set_title("Untrusted Monitor Collusion ROC")
+        fig.suptitle("Untrusted Monitor Collusion ROC")
     elif plot_mode == "trusted":
         ax.set_xlabel("FPR (1 - Attack Pass Rate)")
         ax.set_ylabel("TPR (Trusted Monitor Detection Rate)")
-        ax.set_title("Trusted Monitor ROC")
+        fig.suptitle("Trusted Monitor ROC")
 
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
@@ -654,9 +673,9 @@ def plot_roc_curves(
 
 def plot_safety_usefulness_curves(
     data_dict: Dict[str, OptimizationResult],
-    save_path: str = "src/lasr_labs_2025_control_project/apps/results/safety_usefulness_curves.png",
+    save_path: str = "src/lasr_labs_2025_control_project/apps/results/safety_usefulness_curves.svg",
 ) -> None:
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(6, 4))
 
     rows = []
     for label, opt_result in data_dict.items():
@@ -689,20 +708,31 @@ def plot_safety_usefulness_curves(
     # Sorting by usefulness descending ensures typical tradeoff shape left->right if needed
     df_sorted = df.sort_values(by=["label", "usefulness"], ascending=[True, False])
 
-    # Plot lines per label if >1 point else just scatter
-    for label, sub in df_sorted.groupby("label"):
-        if len(sub) > 1:
-            ax.plot(
-                sub["safety"],
-                sub["usefulness"],
-                marker="o",
-                label=label,
-            )
-        else:
-            ax.scatter(sub["safety"], sub["usefulness"], marker="o", label=label)
+    df_sorted = df_sorted.assign(label=df_sorted["label"].astype(str))
+    label_order = df_sorted["label"].unique().tolist()
+    palette = sns.color_palette("colorblind", n_colors=len(label_order))
+    palette_map = dict(zip(label_order, palette))
 
-    ax.set_xlim(0, 1)
-    ax.set_ylim(0, 1)
+    sns.lineplot(
+        data=df_sorted,
+        x="safety",
+        y="usefulness",
+        hue="label",
+        hue_order=label_order,
+        palette=palette_map,
+        style="label",
+        style_order=label_order,
+        dashes=True,
+        marker="o",
+        estimator=None,
+        sort=False,
+        ax=ax,
+    )
+
+    ax.set_xlim(0, 1.05)
+    ax.set_ylim(0, 1.05)
+    ax.spines.top.set_visible(False)
+    ax.spines.right.set_visible(False)
     ax.set_xlabel("Safety (Blue Team Win Rate)")
     ax.set_ylabel("Usefulness (1 - Replacement FNR)")
     ax.set_title("Safety vs Usefulness Tradeoff")
@@ -765,7 +795,7 @@ def save_safety_usefulness_jsonl(
 
 def plot_outcome_distributions(
     data_dict: Dict[str, OptimizationResult],
-    save_path: str = "src/lasr_labs_2025_control_project/apps/results/outcome_distributions.png",
+    save_path: str = "src/lasr_labs_2025_control_project/apps/results/outcome_distributions.svg",
 ) -> None:
     """Plot stacked outcome probability distributions across usefulness levels.
 

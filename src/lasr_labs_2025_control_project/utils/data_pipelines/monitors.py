@@ -285,7 +285,7 @@ def do_single_backdoor_monitor_run(
         solution = cast(
             str,
             s.get("original_solution")
-            if paraphraser_type != "none" and "original_solution" in s
+            if paraphraser_type == "none" and "original_solution" in s
             else s["solution"],
         )  # type: ignore[index]
         payload.append(
