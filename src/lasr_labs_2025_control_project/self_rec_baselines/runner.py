@@ -18,7 +18,7 @@ def run_binary_self_rec():
                 recognizer_model=recognizer_name,
                 model_a=model_a_name,
                 model_b=model_b_name,
-                data_folder="src/self_rec/data",
+                data_folder="src/lasr_labs_2025_control_project/data",
                 experiment_metadata={},
                 reversed=False,
                 same_model_pairing=False,
@@ -37,7 +37,7 @@ def run_individual_self_rec():
         tasks=[
             individual_self_rec(
                 recognizer_model=solution_model,
-                data_folder="src/self_rec/data",
+                data_folder="src/lasr_labs_2025_control_project/data",
                 experiment_metadata={"model": solution_model, "data_split": "train"},
                 prompt="individual_self_rec_prompt",
             )

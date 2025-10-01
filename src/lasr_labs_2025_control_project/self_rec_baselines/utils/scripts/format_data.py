@@ -33,8 +33,10 @@ def process_json_file(input_file: str, output_file: str, properties: list[str]):
 
 if __name__ == "__main__":
     # params
-    input_path = "src/self_rec/data/merged_solutions.json"
-    output_path = "src/self_rec/data/merged_solutions_model_name.json"
+    input_path = "src/lasr_labs_2025_control_project/data/merged_solutions.json"
+    output_path = (
+        "src/lasr_labs_2025_control_project/data/merged_solutions_model_name.json"
+    )
     properties_to_clean = ["model_A", "model_B"]
 
     # run the code

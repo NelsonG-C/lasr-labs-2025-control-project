@@ -50,10 +50,12 @@ def main() -> None:
         # Re-run optimization for this config and store under experiment_name
         result = run_single_config(normalized)
         aggregated[normalized.experiment_name] = result
-
+    dest_folder = (
+        normalized.results_folder or "src/lasr_labs_2025_control_project/results"
+    )
     logger.info("Generating visualizations across %d experiments", len(aggregated))
-    visualization.plot_data(aggregated, destination_folder=normalized.results_folder)
-    logger.info("Visualizations saved to %s", normalized.results_folder)
+    visualization.plot_data(aggregated, destination_folder=dest_folder)
+    logger.info("Visualizations saved to %s", dest_folder)
 
 
 def build_jsonl_dataframe_from_eval_log(eval_log_path: Path) -> pd.DataFrame:

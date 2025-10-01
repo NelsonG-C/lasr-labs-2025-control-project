@@ -53,27 +53,27 @@ model_name = "claude-3-5-haiku-20241022"  # Model identifier
 Experiment Runs:
 o4-mini normal (correct solution is B):
 ```bash
-inspect eval lasr_labs_2025_control_project/src/experiments/self_rec/self_rec_eval.py@binary_self_rec --model openai/o4-mini --limit 10 -T file_path="data/merged/claude-3-5-haiku-20241022_o4-mini_code_formatted.json" -T reversed=False -T match_string="openai/o4-mini"
+inspect eval src/lasr_labs_2025_control_project/experiments/self_rec_eval.py@binary_self_rec --model openai/o4-mini --limit 10 -T file_path="data/merged/claude-3-5-haiku-20241022_o4-mini_code_formatted.json" -T reversed=False -T match_string="openai/o4-mini"
 ```
 
 o4-mini reversed (correct solution is A):
 ```bash
-inspect eval lasr_labs_2025_control_project/src/experiments/self_rec/self_rec_eval.py@binary_self_rec --model openai/o4-mini --limit 10 -T file_path="data/merged/claude-3-5-haiku-20241022_o4-mini_code_formatted.json" -T reversed=True -T match_string="openai/o4-mini"
+inspect eval src/lasr_labs_2025_control_project/experiments/self_rec_eval.py@binary_self_rec --model openai/o4-mini --limit 10 -T file_path="data/merged/claude-3-5-haiku-20241022_o4-mini_code_formatted.json" -T reversed=True -T match_string="openai/o4-mini"
 ```
 
 claude-3-5-haiku normal (correct solution is A):
 ```bash
-inspect eval lasr_labs_2025_control_project/src/experiments/self_rec/self_rec_eval.py@binary_self_rec --model anthropic/claude-3-5-haiku-20241022 --limit 100 -T file_path="data/merged/claude-3-5-haiku-20241022_o4-mini_code_formatted.json" -T reversed=True -T match_string="claude-3-5-haiku-20241022"
+inspect eval src/lasr_labs_2025_control_project/experiments/self_rec_eval.py@binary_self_rec --model anthropic/claude-3-5-haiku-20241022 --limit 100 -T file_path="data/merged/claude-3-5-haiku-20241022_o4-mini_code_formatted.json" -T reversed=True -T match_string="claude-3-5-haiku-20241022"
 ```
 
 claude-3-5-haiku normal (correct solution is A):
 ```bash
-inspect eval lasr_labs_2025_control_project/src/experiments/self_rec/self_rec_eval.py@binary_self_rec --model anthropic/claude-3-5-haiku-20241022 --limit 100 -T file_path="data/merged/claude-3-5-haiku-20241022_o4-mini_code_formatted.json" -T reversed=False -T match_string="claude-3-5-haiku-20241022"
+inspect eval src/lasr_labs_2025_control_project/experiments/self_rec_eval.py@binary_self_rec --model anthropic/claude-3-5-haiku-20241022 --limit 100 -T file_path="data/merged/claude-3-5-haiku-20241022_o4-mini_code_formatted.json" -T reversed=False -T match_string="claude-3-5-haiku-20241022"
 ```
 
 
 ```bash
-uv run lasr_labs_2025_control_project/src/experiments/self_rec/utils/data_generation.py
+uv run src/lasr_labs_2025_control_project/experiments/utils/data_generation.py
 ```
 
 This will:
@@ -100,7 +100,7 @@ This creates merged datasets with solutions from both models:
 Test a model's ability to recognize its own solutions:
 
 ```bash
-inspect eval lasr_labs_2025_control_project/src/experiments/self_rec/self_rec_eval.py@individual_self_rec --model openai/o4-mini -T file_path="data/o4-mini/all_solutions.json"
+inspect eval src/lasr_labs_2025_control_project/experiments/self_rec_eval.py@individual_self_rec --model openai/o4-mini -T file_path="data/o4-mini/all_solutions.json"
 ```
 
 #### Binary Self-Recognition
@@ -109,12 +109,12 @@ Compare two models' solutions and test recognition ability:
 
 **Using Claude 3.5 Haiku as the evaluator:**
 ```bash
-inspect eval lasr_labs_2025_control_project/src/experiments/self_rec/self_rec_eval.py@binary_self_rec --model anthropic/claude-3-5-haiku-20241022 --limit 10 -T file_path="data/merged_solutions.json" -T reversed=false
+inspect eval src/lasr_labs_2025_control_project/experiments/self_rec_eval.py@binary_self_rec --model anthropic/claude-3-5-haiku-20241022 --limit 10 -T file_path="data/merged_solutions.json" -T reversed=false
 ```
 
 **Using o4-mini as the evaluator:**
 ```bash
-inspect eval lasr_labs_2025_control_project/src/experiments/self_rec/self_rec_eval.py@binary_self_rec --model openai/o4-mini --limit 10 -T file_path="data/merged_solutions.json" -T reversed=false
+inspect eval src/lasr_labs_2025_control_project/experiments/self_rec_eval.py@binary_self_rec --model openai/o4-mini --limit 10 -T file_path="data/merged_solutions.json" -T reversed=false
 ```
 
 ## Parameters

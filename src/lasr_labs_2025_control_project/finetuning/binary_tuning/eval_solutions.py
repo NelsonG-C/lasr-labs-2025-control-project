@@ -121,7 +121,7 @@ def backdoored_solutions() -> Task:
     from control_arena.eval_mode import EvalMode
 
     dataset = apps_setting.get_dataset(eval_mode=EvalMode.ATTACK)
-    eval_log_path = "src/self_rec/finetuning/binary_tuning/data/eval_logs/train/2025-09-11T07-28-05+01-00_backdoored-solutions_bJmmr3dxzvGnVhX99yNCiz.eval"
+    eval_log_path = "src/lasr_labs_2025_control_project/finetuning/binary_tuning/data/eval_logs/train/2025-09-11T07-28-05+01-00_backdoored-solutions_bJmmr3dxzvGnVhX99yNCiz.eval"
 
     # Create task with attack policy system prompt
     return Task(

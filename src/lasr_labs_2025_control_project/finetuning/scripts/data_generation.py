@@ -220,7 +220,7 @@ def generate_problems(
     dataset = apps_setting.get_dataset(eval_mode=EvalMode.HONEST)
     dataset = dataset[:num_samples]
 
-    output_dir = Path("src/self_rec/data/")
+    output_dir = Path("src/lasr_labs_2025_control_project/data/")
     output_dir.mkdir(parents=True, exist_ok=True)
     results_file = output_dir / f"{uuid4()}.json"
 

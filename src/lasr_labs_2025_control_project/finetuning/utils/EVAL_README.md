@@ -1,38 +1,38 @@
 There is a bunch of scripts in this folder that are used to evaluate models and/or process evaluation results from OpenAI eval.
 
 The pipeline is the following:
-1. Generate the data using different models. (self_rec/utils/scripts/data_generation.py)
+1. Generate the data using different models. (utils/scripts/data_generation.py)
 ```bash
-uv run lasr_labs_2025_control_project/src/self_rec/utils/scripts/data_generation.py \
+uv run src/lasr_labs_2025_control_project/utils/scripts/data_generation.py \
   -P grok \
   -N 120 \
   -M grok-4-0709 \
-  -O lasr_labs_2025_control_project/src/self_rec/prompt-optimization/train_data_big_models \
+  -O src/lasr_labs_2025_control_project/prompt-optimization/train_data_big_models \
   -S train
 ```
 
-2. Make a train and test datasets for the target model (self_rec/finetuning/utils/generate_data.py)
+2. Make a train and test datasets for the target model (finetuning/utils/generate_data.py)
 ```bash
 uv run generate_data \
-  --dataset-folder lasr_labs_2025_control_project/src/self_rec/finetuning/train_data_big_models \
-  --output-folder lasr_labs_2025_control_project/src/self_rec/finetuning/experiments/grok/grok-code-fast-1-0825/data \
+  --dataset-folder src/lasr_labs_2025_control_project/finetuning/train_data_big_models \
+  --output-folder src/lasr_labs_2025_control_project/finetuning/experiments/grok/grok-code-fast-1-0825/data \
   --target-model grok-code-fast-1-0825 \
   --max-problems 50
 ```
-3. Evaluate the model on the self-recognition task. (self_rec/finetuning/utils/model_evaluation.py)
+3. Evaluate the model on the self-recognition task. (finetuning/utils/model_evaluation.py)
 ```bash
 uv run model_evaluation \
-  -t lasr_labs_2025_control_project/src/self_rec/finetuning/experiments/grok/grok-code-fast-1-0825/data/test_messages.jsonl \
+  -t src/lasr_labs_2025_control_project/finetuning/experiments/grok/grok-code-fast-1-0825/data/test_messages.jsonl \
   -m grok-code-fast-1-0825 \
   -p grok \
-  -o lasr_labs_2025_control_project/src/self_rec/finetuning/experiments/grok/grok-code-fast-1-0825/results/eval.json
+  -o src/lasr_labs_2025_control_project/finetuning/experiments/grok/grok-code-fast-1-0825/results/eval.json
 ```
-4. Calculate the metrics for the self-recognition task. (self_rec/finetuning/utils/calc_eval_metrics.py)
+4. Calculate the metrics for the self-recognition task. (finetuning/utils/calc_eval_metrics.py)
 ```bash
 uv run calc_eval_metrics \
-  -o lasr_labs_2025_control_project/src/self_rec/finetuning/experiments/grok/grok-code-fast-1-0825/results/report.json \
-  -r lasr_labs_2025_control_project/src/self_rec/finetuning/experiments/grok/grok-code-fast-1-0825/results/report.txt \
-  -v lasr_labs_2025_control_project/src/self_rec/finetuning/experiments/grok/grok-code-fast-1-0825/results/eval_fixed.jsonl
+  -o src/lasr_labs_2025_control_project/finetuning/experiments/grok/grok-code-fast-1-0825/results/report.json \
+  -r src/lasr_labs_2025_control_project/finetuning/experiments/grok/grok-code-fast-1-0825/results/report.txt \
+  -v src/lasr_labs_2025_control_project/finetuning/experiments/grok/grok-code-fast-1-0825/results/eval_fixed.jsonl
 ```
 
 
@@ -43,7 +43,7 @@ uv run calc_eval_metrics \
 This script takes the evaluation results from OpenAI eval and generates a table with the columns [system_message, user_message, model, ground_truth, prediction].
 ```bash
 uv run generate_table \
-  -i lasr_labs_2025_control_project/src/self_rec/finetuning/experiments/grok/grok-code-fast-1-0825/results/eval.json \
+  -i src/lasr_labs_2025_control_project/finetuning/experiments/grok/grok-code-fast-1-0825/results/eval.json \
   -m grok-code-fast-1-0825 \
-  -o lasr_labs_2025_control_project/src/self_rec/finetuning/experiments/grok/grok-code-fast-1-0825/results/table.jsonl
+  -o src/lasr_labs_2025_control_project/finetuning/experiments/grok/grok-code-fast-1-0825/results/table.jsonl
 ```

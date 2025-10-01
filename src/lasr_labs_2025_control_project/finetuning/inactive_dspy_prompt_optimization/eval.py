@@ -36,7 +36,6 @@ def main():
     parser.add_argument(
         "--classify-file",
         type=str,
-        default="lasr_labs_2025_control_project/src/self_rec/prompt-optimization/llm_programs/default.py",
         help="Path to file containing classify function",
     )
 
@@ -57,7 +56,6 @@ def main():
     parser.add_argument(
         "--dataset-path",
         type=str,
-        default="lasr_labs_2025_control_project/src/self_rec/prompt-optimization/train_data",
         help="Path to dataset",
     )
 

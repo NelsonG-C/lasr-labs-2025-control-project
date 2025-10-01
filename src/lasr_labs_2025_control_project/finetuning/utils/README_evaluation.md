@@ -96,7 +96,7 @@ The output file is a JSONL file where each line follows the `eval_schema.json` s
 ```json
 {
   "run_id": "550e8400-e29b-41d4-a716-446655440000",
-  "data_source_idx": "lasr_labs_2025_control_project/src/self_rec/prompt-optimization/experiments/grok-4-0709/train_data/test.jsonl",
+  "data_source_idx": "src/lasr_labs_2025_control_project/prompt-optimization/experiments/grok-4-0709/train_data/test.jsonl",
   "item": {
     "problem_statement": "You are at the top left cell (1, 1) of an n × m labyrinth...",
     "solution": "def count_paths_in_labyrinth(n, m, labyrinth):\n    MOD = 10**9 + 7\n    ...",

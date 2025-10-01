@@ -2,19 +2,6 @@
 
 ### Steps:
 
-#### Create the data
-Start by running both the attack and honeypot runs in the apps folder.
-
-Untrusted Generator
-```bash
-uv run src/apps/runners/self_rec/attack.py
-```
-
-Honeypots (Trusted Generator)
-```bash
-uv run src/apps/runners/self_rec/honeypot.py
-```
-
 Set their config in the files.
 If you need to change the prompts they use, currently this is done in apps.py
 

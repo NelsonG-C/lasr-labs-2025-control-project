@@ -16,8 +16,8 @@ from lasr_labs_2025_control_project.finetuning.scripts.data_models import (
 )
 
 # %%
-gpt41_data_path = "src/self_rec/finetuning/binary_tuning/data/eval_logs/test/2025-09-11T10-42-42+01-00_backdoored-solutions_GegmeCCDsjTPRgu98bepHo.eval"
-gpt4o_data_path = "src/self_rec/finetuning/binary_tuning/data/eval_logs/test/2025-09-11T11-39-49+01-00_backdoored-solutions_WesZ7jkU4x2AhFLsiNsrG4.eval"
+gpt41_data_path = "src/lasr_labs_2025_control_project/finetuning/binary_tuning/data/eval_logs/test/2025-09-11T10-42-42+01-00_backdoored-solutions_GegmeCCDsjTPRgu98bepHo.eval"
+gpt4o_data_path = "src/lasr_labs_2025_control_project/finetuning/binary_tuning/data/eval_logs/test/2025-09-11T11-39-49+01-00_backdoored-solutions_WesZ7jkU4x2AhFLsiNsrG4.eval"
 
 
 gpt41_data = samples_df(gpt41_data_path, full=True)
@@ -123,10 +123,10 @@ ds_gpt4o_success = Dataset(
 
 # %%
 ds_gpt4o_success.to_json(
-    "src/self_rec/finetuning/binary_tuning/data/raw/ds_gpt4o_test.json"
+    "src/lasr_labs_2025_control_project/finetuning/binary_tuning/data/raw/ds_gpt4o_test.json"
 )
 ds_gpt41_success.to_json(
-    "src/self_rec/finetuning/binary_tuning/data/raw/ds_gpt41_test.json"
+    "src/lasr_labs_2025_control_project/finetuning/binary_tuning/data/raw/ds_gpt41_test.json"
 )
 print(
     f"Wrote {len([s for p in ds_gpt4o_success for s in p.solutions])} + {len([s for p in ds_gpt41_success for s in p.solutions])} solutions"
