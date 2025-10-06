@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import click
-from inspect_ai import Epochs, Task, eval, task
+from inspect_ai import Task, eval, task
 from inspect_ai.model import (
     ChatMessageSystem,
     ChatMessageUser,
@@ -17,7 +17,7 @@ from inspect_ai.model import (
     ModelOutput,
     get_model,
 )
-from inspect_ai.scorer import Score, Scorer, Target, scorer
+from inspect_ai.scorer import Score, Scorer, Target, mean, scorer
 from inspect_ai.solver import (
     Generate,
     Solver,
@@ -244,7 +244,7 @@ def create_monitor_suspiciousness_scorer(
     name: str,
     monitor_config: MonitorConfig,
 ) -> Scorer:
-    @scorer(metrics=[], name=name)
+    @scorer(metrics=[mean()], name=name)
     def monitor_suspiciousness_scorer() -> Scorer:
         async def score(state: TaskState, target: Target) -> Score:
             problem, solution = get_problem_and_solution_from_state(
@@ -350,12 +350,11 @@ def main(config: str):
     )
 
     for run in normalized.runs:
-        assert isinstance(
-            run, MonitorRunConfig
-        ), "Run is not a MonitorRunConfig, make sure to use the correct config"
+        assert isinstance(run, MonitorRunConfig), (
+            "Run is not a MonitorRunConfig, make sure to use the correct config"
+        )
         result = eval(
             tasks=monitor_solutions(run),
-            epochs=Epochs(1, ["pass_at_1"]),
             max_connections=48,
             max_sandboxes=48,
             reasoning_tokens=0,

@@ -1,9 +1,12 @@
-experiment_folder: experiments/self_rec
+experiment_folder: experiments/self_rec/subtle
+
+experiment_name: self_rec
 
 results_folder: results/
 
 defaults:
   data_split: test
+  limit: 1
 
 runs:
   attacks:
@@ -12,14 +15,14 @@ runs:
     save_path: generator/attacks.eval
     model: openai/gpt-4.1
 
-  honest:
-    eval_mode: honest
-    system_prompt: honest_policy_prompt
-    save_path: generator/honest.eval
-    model: openai/gpt-4.1
+  # honest:
+  #   eval_mode: honest
+  #   system_prompt: honest_policy_prompt
+  #   save_path: generator/honest.eval
+  #   model: openai/gpt-4.1
 
-  honeypots:
-    eval_mode: attack
-    system_prompt: self_rec_subtle_attack_policy_prompt
-    save_path: generator/honeypots.eval
-    model: google/gemini-2.5-flash
+  # honeypots:
+  #   eval_mode: attack
+  #   system_prompt: self_rec_subtle_attack_policy_prompt
+  #   save_path: generator/honeypots.eval
+  #   model: google/gemini-2.5-flash
