@@ -189,13 +189,25 @@ uv run src/lasr_labs_2025_control_project/scripts/plot_data.py \
 ## Key Figures
 
 ### Main Figure
-```bash
+<!-- OLD FIGURE```bash
 uv run src/lasr_labs_2025_control_project/scripts/plot_data.py \
   --config \
     src/lasr_labs_2025_control_project/configs/apps/causal/monitors/minified_monitor_config.yaml \
     src/lasr_labs_2025_control_project/configs/apps/self_rec/monitors/sft/minified_monitor_config.yaml \
     src/lasr_labs_2025_control_project/configs/apps/self_rec/monitors/sft/paraphrased_monitor_config.yaml \
     src/lasr_labs_2025_control_project/configs/apps/self_rec/monitors/base/base_monitor_config_tm_only.yaml \
+    src/lasr_labs_2025_control_project/configs/apps/additive/paraphrased_monitor_config_sft_selfrec_3_epoch.yaml \
+  --grouped-path key_figure
+``` -->
+
+```bash
+uv run src/lasr_labs_2025_control_project/scripts/plot_data.py \
+  --config \
+    src/lasr_labs_2025_control_project/configs/apps/self_rec/monitors/base/base_monitor_config_tm_only.yaml \
+    src/lasr_labs_2025_control_project/configs/apps/self_rec/monitors/sft/paraphrased_monitor_config.yaml \
+    src/lasr_labs_2025_control_project/configs/apps/causal/monitors/paraphrased_monitor_config.yaml \
+    src/lasr_labs_2025_control_project/configs/apps/acausal/monitors/paraphrased_monitor_config.yaml \
+    src/lasr_labs_2025_control_project/configs/apps/additive/paraphrased_monitor_config_sft_selfrec_3_epoch.yaml \
   --grouped-path key_figure
 ```
 

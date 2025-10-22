@@ -2,7 +2,7 @@ experiment_folder: experiments/apps/acausal
 
 results_folder: results/paraphrased_base/
 
-experiment_name: Acausal Summarised
+experiment_name: Acausal
 
 defaults:
   monitors:

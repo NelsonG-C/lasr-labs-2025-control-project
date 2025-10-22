@@ -2,7 +2,7 @@ experiment_folder: experiments/apps/additive
 
 results_folder: results/paraphrased_base_selfrec/
 
-experiment_name: Additive SFT Summarised
+experiment_name: Additive SFT
 
 defaults:
   monitors:

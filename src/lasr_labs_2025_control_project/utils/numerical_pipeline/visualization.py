@@ -640,6 +640,10 @@ def plot_roc_curves(
     point_rows: list[dict[str, float | str]] = []
 
     for label, result in data_dict.items():
+        # remove tm only from data dict
+        if label == "Baseline without Untrusted Monitoring":
+            print("here")
+            continue
         if result.config is None or result.config.monitor_roc_fn is None:
             continue
 
@@ -721,8 +725,11 @@ def plot_roc_curves(
         if label in label_to_display
     ]
 
+    colorblind_colors = sns.color_palette("colorblind")[1:]
+
     if curve_rows:
         curve_df = pd.DataFrame(curve_rows).sort_values(["fpr", "tpr"])
+        # remove first item from curve_df
         sns.lineplot(
             data=curve_df,
             x="fpr",
@@ -730,7 +737,8 @@ def plot_roc_curves(
             hue="label",
             hue_order=display_label_order,
             estimator=None,
-            palette="colorblind",
+            dashes=False,
+            palette=colorblind_colors,
             style="label",
             style_order=display_label_order,
             ax=ax,
@@ -739,6 +747,7 @@ def plot_roc_curves(
 
     if point_rows:
         point_df = pd.DataFrame(point_rows).sort_values(["fpr", "tpr"])
+        # remove first item from point_df
         sns.scatterplot(
             data=point_df,
             x="fpr",
@@ -747,7 +756,7 @@ def plot_roc_curves(
             hue_order=display_label_order,
             ax=ax,
             style_order=display_label_order,
-            palette="colorblind",
+            palette=colorblind_colors,
             legend=False,
             s=60,
             marker="X",
@@ -809,7 +818,8 @@ def plot_roc_curves(
             hue="label",
             hue_order=display_label_order,
             estimator=None,
-            palette="colorblind",
+            palette=colorblind_colors,
+            dashes=False,
             style="label",
             style_order=display_label_order,
             ax=axins,
@@ -825,7 +835,7 @@ def plot_roc_curves(
             hue="label",
             hue_order=display_label_order,
             ax=axins,
-            palette="colorblind",
+            palette=colorblind_colors,
             legend=False,
             s=60,
             marker="X",
@@ -918,7 +928,6 @@ def plot_safety_usefulness_curves(
 
     rows: list[dict[str, Any]] = []
     for label, opt_result in data_dict.items():
-        print("label:", label)
         for entry in getattr(opt_result, "results", []) or []:
             safety = entry.get("safety")
             usefulness = entry.get("usefulness")
@@ -949,6 +958,15 @@ def plot_safety_usefulness_curves(
     label_order = list(data_dict.keys())
     df = df.sort_values(by=["usefulness", "safety"])
 
+    colorblind_colors = sns.color_palette("colorblind")
+    custom_palette = [
+        "grey",
+    ] + colorblind_colors[1:]
+
+    dashes_map = {
+        label: (2, 2) if i == 0 else (None, None) for i, label in enumerate(label_order)
+    }
+
     for idx, a in enumerate((ax, axins)):
         sns.scatterplot(
             data=df,
@@ -956,7 +974,7 @@ def plot_safety_usefulness_curves(
             y="usefulness",
             hue="label",
             hue_order=label_order,
-            palette="colorblind",
+            palette=custom_palette,
             style="converged",
             markers=CONVERGENCE_MARKERS,
             ax=a,
@@ -971,15 +989,16 @@ def plot_safety_usefulness_curves(
             style="label",
             hue_order=label_order,
             style_order=label_order,
-            palette="colorblind",
+            palette=custom_palette,
+            dashes=dashes_map,
             ax=a,
             legend=idx == 0,  # Create legend on first plot to extract handles later
             estimator=None,
             zorder=0.5,
         )
 
-        a.set_xlabel("Safety (Blue Team Win Rate)")
-        a.set_ylabel("Usefulness (1 - Replacement FNR)")
+        a.set_xlabel("Safety")
+        a.set_ylabel("Usefulness")
 
         _apply_standard_axes_style(a)
         _add_unit_square_outline(a)
@@ -990,12 +1009,12 @@ def plot_safety_usefulness_curves(
     ax.set_aspect("equal")
 
     axins.set_title("Zoomed: High Safety & Usefulness")
-    axins.set_xlim(0.6, 1.01)
-    axins.set_ylim(0.6, 1.01)
+    axins.set_xlim(0.85, 1.01)
+    axins.set_ylim(0.85, 1.01)
     ax.set_aspect("equal")
 
     box = Rectangle(
-        (0.6, 0.6),
+        (0.85, 0.85),
         0.4,
         0.4,
         fill=False,

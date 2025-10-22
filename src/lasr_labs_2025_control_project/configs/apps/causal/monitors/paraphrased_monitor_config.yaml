@@ -2,7 +2,7 @@ experiment_folder: experiments/apps/causal
 
 results_folder: results/paraphrased_base/
 
-experiment_name: Causal Summarised
+experiment_name: Causal
 
 defaults:
   monitors:

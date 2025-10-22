@@ -2,7 +2,7 @@ experiment_folder: experiments/apps/self_rec
 
 results_folder: results/paraphrased_sft/
 
-experiment_name: Self-Rec SFT Summarised
+experiment_name: Self-Rec SFT
 
 defaults:
   monitors:

@@ -2,7 +2,7 @@ experiment_folder: experiments/apps/self_rec
 
 results_folder: results/none_base/tm_only
 
-experiment_name: TM Only
+experiment_name: Baseline without Untrusted Monitoring
 
 defaults:
   disable_untrusted_monitor: true
