@@ -2,7 +2,7 @@
 README
 To use the script, add FINAL_RESULTS data (e.g. `apps/self_rec` folder with `outputs` subfolder with monitor results) to the project.
 
-Specify the path to the folder in `dataset_folder` variable, e.g. `experiments/apps` for a folder containing apps data (with subfolders `self_rec`, `causal`, ...).
+Specify the path to this data folder in `dataset_folder` variable in `main()` (line 44), e.g. `experiments/apps` for a folder containing apps data (with subfolders `self_rec`, `causal`, ...).
 
 Run the script with `uv run bootstrap.py`, it will create a `bootstrap_results` folder in each setup folder (e.g. `experiments/apps/self_rec/bootstrap_results) with all the resulting .jsonl files containing all the S/U values.
 """
