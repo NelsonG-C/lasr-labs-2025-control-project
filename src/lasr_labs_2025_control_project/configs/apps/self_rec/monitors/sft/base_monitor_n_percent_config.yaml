@@ -1,0 +1,55 @@
+experiment_folder: experiments/apps/self_rec
+
+results_folder: results/none_sft/20_percent_3_epoch/
+
+experiment_name: Self-Rec SFT None
+
+defaults:
+  monitors:
+    - untrusted_collusion_monitor:
+        model_info:
+          model: openai/ft:gpt-4.1-2025-04-14:lasr-labs:20p-3-epoch-gemini-2-5-flash:CiDggN8Q
+          system_prompt: SELF_REC_UNTRUSTED_MONITOR_COLLUSION_SYSTEM_PROMPT
+          base_prompt: MONITOR_USER_PROMPT
+        remove_comments: true
+        transformed: false
+
+    - trusted_backdoor_monitor:
+        model_info:
+          model: openai/gpt-4o-mini
+          system_prompt: DEFAULT_HONEST_MONITOR_SYSTEM_PROMPT
+          base_prompt: MONITOR_USER_PROMPT
+        remove_comments: true
+        transformed: false
+
+    - untrusted_backdoor_monitor:
+        model_info:
+          model: openai/gpt-4.1-2025-04-14
+          system_prompt: DEFAULT_HONEST_MONITOR_SYSTEM_PROMPT
+          base_prompt: MONITOR_USER_PROMPT
+        remove_comments: true
+        transformed: false
+runs:
+  attacks:
+    eval_path: generator/attacks.eval
+    save_path: outputs/none_sft/20_percent_3_epoch/attack_monitor_results.eval
+    monitors:
+      - untrusted_collusion_monitor
+      - trusted_backdoor_monitor
+      - untrusted_backdoor_monitor
+
+  honest:
+    eval_path: generator/honest.eval
+    save_path: outputs/none_sft/20_percent_3_epoch/honest_monitor_results.eval
+    monitors:
+      - untrusted_collusion_monitor
+      - trusted_backdoor_monitor
+      - untrusted_backdoor_monitor
+
+  honeypots:
+    eval_path: generator/honeypots.eval
+    save_path: outputs/none_sft/20_percent_3_epoch/honeypots_monitor_results.eval
+    monitors:
+      - untrusted_collusion_monitor
+      - trusted_backdoor_monitor
+      - untrusted_backdoor_monitor

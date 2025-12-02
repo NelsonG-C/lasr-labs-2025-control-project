@@ -24,6 +24,8 @@ dependencies = [
     "inspect-ai==0.3.133",
     "pyyaml>=6.0.1",
     "dacite>=1.9.2",
+    "copulas>=0.12.3",
+    "statsmodels>=0.14.5",
 ]
 
 [dependency-groups]
@@ -40,6 +42,7 @@ dev = [
 
 [tool.ruff]
 line-length = 88
+extend-exclude = ["src/lasr_labs_2025_control_project/scripts/calculate_copulas.py"]
 
 [tool.pyright]
 reportMissingParameterType = true
@@ -47,6 +50,7 @@ reportUnknownParameterType = true
 typeCheckingMode = "basic"
 reportAssignmentType = "warning"
 reportReturnType = "warning"
+ignore = ["src/lasr_labs_2025_control_project/scripts/calculate_copulas.py"]
 
 [tool.pytest.ini_options]
 markers = [
