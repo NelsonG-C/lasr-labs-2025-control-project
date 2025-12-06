@@ -23,8 +23,8 @@ import pandas as pd
 from inspect_ai.log import read_eval_log
 from scipy import stats
 from scipy.optimize import minimize
+from scipy.stats import rankdata
 from statsmodels.distributions.copula.api import GaussianCopula, StudentTCopula
-from statsmodels.distributions.copula.tools import approx_pobs
 
 from lasr_labs_2025_control_project.utils.config_loader import (
     RunLabel,
@@ -53,11 +53,49 @@ class CopulaResult:
     n_tied_y: int = 0
 
 
+def pseudo_obs(data: np.ndarray, ties_method: str = "average") -> np.ndarray:
+    """
+    Compute pseudo-observations for copula modeling.
+
+    Transforms data to pseudo-observations (approximately uniform marginals)
+    using the empirical distribution function scaled by n/(n+1).
+
+    This is equivalent to the R copula/VineCopula pobs() function.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        n x d matrix of observations
+    ties_method : str
+        Method for handling ties, passed to scipy.stats.rankdata.
+        Options: 'average', 'min', 'max', 'dense', 'ordinal'
+
+    Returns
+    -------
+    np.ndarray
+        n x d matrix of pseudo-observations in (0, 1)
+    """
+    data = np.asarray(data)
+    if data.ndim == 1:
+        data = data.reshape(-1, 1)
+
+    n = data.shape[0]
+    result = np.zeros_like(data, dtype=float)
+
+    for j in range(data.shape[1]):
+        # Rank the data (1 to n)
+        ranks = rankdata(data[:, j], method=ties_method)
+        # Scale to (0, 1) using n+1 to avoid boundary issues
+        result[:, j] = ranks / (n + 1)
+
+    return result
+
+
 def load_scores(eval_log_path: Path) -> pd.DataFrame:
     """Load all three scores from eval log."""
     log = read_eval_log(eval_log_path)
     samples = []
-    for sample in log.samples:
+    for sample in log.samples:  # pyright: ignore
         meta = {**sample.metadata, **sample.store}
         samples.append(
             {
@@ -128,7 +166,7 @@ def fit_gaussian_copula_and_test(
         log_likelihood_indep=float(log_lik_indep),
         lr_statistic=float(lr_stat),
         p_value=float(p_value),
-        is_independent=p_value > 0.05,
+        is_independent=p_value > 0.05,  # pyright: ignore
         copula=copula_fitted,
         n_tied_x=n_tied_x,
         n_tied_y=n_tied_y,
@@ -173,7 +211,7 @@ def fit_studentt_params(data_uniform: np.ndarray) -> Tuple[float, float]:
     )
 
     # Stage 2: Refined optimization with bounds
-    def neg_log_lik(params):
+    def neg_log_lik(params):  # pyright: ignore
         rho, df_val = params
 
         try:
@@ -260,7 +298,7 @@ def fit_studentt_copula_and_test(
         log_likelihood_indep=float(log_lik_indep),
         lr_statistic=float(lr_stat),
         p_value=float(p_value),
-        is_independent=p_value > 0.05,
+        is_independent=p_value > 0.05,  # pyright: ignore
         copula=copula_fitted,
         n_tied_x=n_tied_x,
         n_tied_y=n_tied_y,
@@ -278,7 +316,7 @@ def test_independence(
     n = len(x)
 
     # Check for ties
-    n_tied_x, n_tied_y = check_ties(x, y)
+    n_tied_x, n_tied_y = check_ties(x, y)  # pyright: ignore
     if n_tied_x > 0 or n_tied_y > 0:
         pct_tied_x = 100 * n_tied_x / n
         pct_tied_y = 100 * n_tied_y / n
@@ -287,9 +325,9 @@ def test_independence(
         logger.warning(f"    {col2}: {n_tied_y}/{n} tied ({pct_tied_y:.1f}%)")
         logger.warning("  → Test sensitivity may be reduced with tied data")
 
-    # Transform to pseudo-observations using statsmodels
+    # Transform to pseudo-observations
     # This handles ties properly and is invariant under monotone transforms
-    data_uniform = approx_pobs(clean_df.values)
+    data_uniform = pseudo_obs(clean_df.values)
 
     # Fit copula and test
     if copula_type == "gaussian":
@@ -357,8 +395,8 @@ def plot_results(results: Dict[str, CopulaResult], df: pd.DataFrame, save_path: 
         x, y = clean_df[col1].values, clean_df[col2].values
         n = len(x)
 
-        # Transform to pseudo-observations using statsmodels
-        data_uniform = approx_pobs(clean_df.values)
+        # Transform to pseudo-observations
+        data_uniform = pseudo_obs(clean_df.values)
         u, v = data_uniform[:, 0], data_uniform[:, 1]
 
         # Create density grid in uniform space (stay away from boundaries)
@@ -375,7 +413,7 @@ def plot_results(results: Dict[str, CopulaResult], df: pd.DataFrame, save_path: 
         gauss = results[gauss_key]
         try:
             # Calculate fitted copula PDF
-            density = gauss.copula.pdf(grid_points).reshape(100, 100)
+            density = gauss.copula.pdf(grid_points).reshape(100, 100)  # pyright: ignore
             # Remove infinities and NaNs
             density = np.nan_to_num(density, nan=0.0, posinf=0.0, neginf=0.0)
             # Clip to reasonable percentile for visualization
@@ -421,7 +459,7 @@ def plot_results(results: Dict[str, CopulaResult], df: pd.DataFrame, save_path: 
         student = results[student_key]
         try:
             # Calculate fitted copula PDF
-            density = student.copula.pdf(grid_points).reshape(100, 100)
+            density = student.copula.pdf(grid_points).reshape(100, 100)  # pyright: ignore
             # Remove infinities and NaNs
             density = np.nan_to_num(density, nan=0.0, posinf=0.0, neginf=0.0)
             # Clip to reasonable percentile for visualization
@@ -477,7 +515,7 @@ def plot_results(results: Dict[str, CopulaResult], df: pd.DataFrame, save_path: 
         color="gray",
     )
 
-    plt.tight_layout(rect=[0, 0.035, 1, 0.98])
+    plt.tight_layout(rect=[0, 0.035, 1, 0.98])  # pyright: ignore
     save_path.parent.mkdir(parents=True, exist_ok=True)
     plt.savefig(save_path, dpi=150, bbox_inches="tight")
     logger.info(f"Saved plot to {save_path}")
@@ -533,7 +571,7 @@ def print_summary(experiment_name: str, results: Dict[str, CopulaResult]):
     print(f"{'=' * 80}\n")
 
 
-def process_config(config_path: Path, output_dir: Path = None):
+def process_config(config_path: Path, output_dir: Path = None):  # pyright: ignore
     """Process a single config file."""
     logger.info(f"Processing: {config_path}")
 
