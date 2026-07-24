@@ -106,22 +106,34 @@ Parameterization stays compatible with the existing win calculator:
 
 ### 2. Asymmetric honest UM errors
 
-Drop `um_suspiciousness_error` entirely. At honest threshold `s`:
+The honest threshold `s` is a **fixed capability parameter of the untrusted
+model**, not a strategy variable — it is chosen once at build time by a fixed
+rule and both error rates are then measured from data. Note the current rule
+(minimize `(1 − TPR − FPR)²`, i.e. the FPR = FNR crossing) *creates* the
+symmetry the reviewers objected to, so the rule must change; use Youden's J
+(max TPR − FPR) or the score scale's semantic flag point.
+
+Drop `um_suspiciousness_error` entirely. At the fixed `s`:
 
 - **FNR direction** (honest UM misses a real attack): already inside
   `P_pass` above via `1[susp_i ≥ s]` — per-sample, jointly with collusion.
 - **FPR direction** (honest UM flags benign code):
-  `ε(s) = P(susp ≥ s | benign)` from `benign_df.untrusted_suspiciousness_score`.
-  Feed this into `untrusted_monitor_epsilon` (currently hard-coded 0), where it
-  already has the right downstream semantics: it consumes audit budget
-  (`optimization.py:486-491`) and enters the honeypot Poisson rate
-  (`optimization.py:509`).
+  `ε = P(susp ≥ s | benign)` from `benign_df.untrusted_suspiciousness_score`.
+  Feed this into `untrusted_monitor_epsilon`, where it already has the right
+  downstream semantics: it consumes audit budget (`optimization.py:486-491`)
+  and enters the honeypot Poisson rate (`optimization.py:509`).
 
-The two directions now come from different distributions at the same threshold
-— asymmetric by construction. Optionally expose `s` (as a benign-FPR target,
-linear in [0, 1]) as a blue parameter in `construct_parameter_spaces`; blue
-then trades honest-UM sensitivity against audit-budget burn, which is the
-economically meaningful knob the symmetric-error model hid.
+**Bug found during design**: the `untrusted_monitor_epsilon` metadata key is
+read (`optimization.py:204,351`; `parameter_sensitivity.py:403`) but never
+written anywhere in the codebase — every run to date has used ε = 0. The
+suspiciousness ROC's error lands under a different metadata key
+(`untrusted_suspiciousness_classification_error`) and only feeds the
+`p_um_reports` term. Wiring ε from data is therefore both a modeling change
+and a fix; flag the before/after in the paper.
+
+Since `s` is fixed, ε stays a scalar snapshotted at config-build time and the
+existing `f(t, fpr_t)` two-argument ROC interface is unchanged — `s` is
+curried into the joint closure.
 
 ### 3. Honeypot side (unchanged semantics, noted for the paper)
 
@@ -141,10 +153,10 @@ machinery.
    ±padding sentinels, same construction as the current 1D interpolators).
    Keep `build_roc_function` as a thin wrapper so `disable_*_monitor`
    degenerate cases and metadata keys survive.
-2. `optimization.py`: thread `epsilon(s)` through
-   `build_blue_team_win_calculator` as a function of the blue strategy rather
-   than a scalar; add optional `blue_team_um_fpr_target` to
-   `construct_parameter_spaces` (default: fixed, off).
+2. `optimization.py`: no interface change — populate the
+   `untrusted_monitor_epsilon` metadata key from benign suspiciousness scores
+   at the fixed `s` (fixing the never-written-key bug), so the existing
+   scalar plumbing picks it up.
 3. `double_oracle.py`: add an optional finite-set best response for
    `red_team_roc_threshold` (enumerate observed collusion thresholds, keep
    Powell for the other axes). Low-risk, addresses plateau stalls at source.
