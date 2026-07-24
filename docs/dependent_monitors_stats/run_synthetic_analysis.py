@@ -39,8 +39,8 @@ from lasr_labs_2025_control_project.utils.numerical_pipeline.roc_function_builde
 )
 
 RHOS = [0.0, 0.6]
-# Honest-UM quality regimes: "noisy" gives epsilon ~ 0.16 (audit queue
-# swamped); "sharp" gives epsilon ~ 0.01, closer to the paper's near-perfect
+# Honest-UM quality regimes: "noisy" gives honest FPR ~ 0.16 (audit queue
+# swamped); "sharp" gives honest FPR ~ 0.01, closer to the paper's near-perfect
 # UM suspiciousness ROC.
 VARIANTS = {
     "noisy honest UM": dict(susp_attack=(7.0, 2.0), susp_benign=(2.5, 2.0)),
@@ -73,8 +73,8 @@ def run_curve(dfs, assume_independent: bool) -> dict:
     )
     return {
         "model_type": config.monitor_roc_fn_metadata.get("model_type"),
-        "untrusted_monitor_epsilon": config.monitor_roc_fn_metadata.get(
-            "untrusted_monitor_epsilon"
+        "untrusted_honest_fpr": config.monitor_roc_fn_metadata.get(
+            "untrusted_honest_fpr"
         ),
         "untrusted_honest_fnr": config.monitor_roc_fn_metadata.get(
             "untrusted_honest_fnr"
@@ -159,7 +159,7 @@ def main() -> None:
             # Ablation: permute the TM column on attacks to remove
             # cross-monitor dependence while keeping the joint model's
             # honest-error treatment. (legacy vs shuffled) isolates the
-            # epsilon/asymmetry effect; (shuffled vs joint) isolates the
+            # honest-error/asymmetry effect; (shuffled vs joint) isolates the
             # dependence effect.
             shuffled_attacks = dfs[0].copy()
             shuffled_attacks["trusted_suspiciousness_score"] = np.random.default_rng(
@@ -191,8 +191,10 @@ def main() -> None:
                     label=label,
                 )
             results["curves"][f"{variant}|rho={rho}"] = entry
-            eps = entry["joint (dependence-aware)"]["untrusted_monitor_epsilon"]
-            ax.set_title(f"{variant}, ρ = {rho} (ε = {eps:.3f})", fontsize=10)
+            fpr_h = entry["joint (dependence-aware)"]["untrusted_honest_fpr"]
+            ax.set_title(
+                f"{variant}, ρ = {rho} (honest FPR = {fpr_h:.3f})", fontsize=10
+            )
             if row == n_rows - 1:
                 ax.set_xlabel("Safety (blue team win rate)")
             if col == 0:
@@ -237,7 +239,7 @@ def main() -> None:
             s = [p["safety"] for p in curve["points"]]
             print(
                 f"{rho:10s} {label:28s} safety@u=1.0: {s[0]:.4f}  "
-                f"epsilon: {curve['untrusted_monitor_epsilon']}"
+                f"honest_fpr: {curve['untrusted_honest_fpr']}"
             )
 
 

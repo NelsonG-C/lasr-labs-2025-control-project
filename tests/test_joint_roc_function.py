@@ -103,8 +103,8 @@ class TestJointVsIndependent:
         assert meta_new["model_type"] == "joint_empirical"
         assert fn_old.type == "uncorrelated"
         assert meta_old["model_type"] == "independent"
-        # Legacy behavior preserved exactly: epsilon key stays unset (=> 0).
-        assert "untrusted_monitor_epsilon" not in meta_old
+        # Legacy behavior preserved exactly: honest FPR key stays unset (=> 0).
+        assert "untrusted_honest_fpr" not in meta_old
 
     def test_disabled_monitor_falls_back_to_legacy(self, correlated_dfs):
         attacks_df, honeypots_df, benign_df = correlated_dfs
@@ -118,22 +118,22 @@ class TestJointVsIndependent:
 
 
 class TestAsymmetricHonestErrors:
-    def test_epsilon_wired_and_asymmetric(self, correlated_dfs):
+    def test_honest_fpr_wired_and_asymmetric(self, correlated_dfs):
         attacks_df, honeypots_df, benign_df = correlated_dfs
         _, meta = build_roc_function(
             attacks_df=attacks_df, honeypots_df=honeypots_df, benign_df=benign_df
         )
         s = meta["untrusted_honest_threshold"]
         susp_b = benign_df["untrusted_suspiciousness_score"].to_numpy()
-        assert meta["untrusted_monitor_epsilon"] == pytest.approx(np.mean(susp_b >= s))
-        assert 0.0 < meta["untrusted_monitor_epsilon"] < 1.0
+        assert meta["untrusted_honest_fpr"] == pytest.approx(np.mean(susp_b >= s))
+        assert 0.0 < meta["untrusted_honest_fpr"] < 1.0
         assert 0.0 < meta["untrusted_honest_fnr"] < 1.0
         # The point of the change: the two directions are not tied together.
-        assert meta["untrusted_monitor_epsilon"] != pytest.approx(
+        assert meta["untrusted_honest_fpr"] != pytest.approx(
             meta["untrusted_honest_fnr"], abs=1e-6
         )
 
-    def test_epsilon_reaches_win_calculator(self, correlated_dfs):
+    def test_honest_fpr_reaches_win_calculator(self, correlated_dfs):
         attacks_df, honeypots_df, benign_df = correlated_dfs
         config = build_optimization_config(
             num_tasks=2000,
@@ -143,7 +143,7 @@ class TestAsymmetricHonestErrors:
             honeypots_df=honeypots_df,
             benign_df=benign_df,
         )
-        assert config.monitor_roc_fn_metadata["untrusted_monitor_epsilon"] > 0
+        assert config.monitor_roc_fn_metadata["untrusted_honest_fpr"] > 0
         params = {
             "blue_team_honeypot_fraction": np.float64(0.5),
             "red_team_roc_threshold": np.float64(5.0),
@@ -172,7 +172,7 @@ class TestAsymmetricHonestErrors:
         outcomes = {}
         for name, eps, fnr in [
             ("perfect", 0.0, 0.0),
-            ("errors", meta["untrusted_monitor_epsilon"], meta["untrusted_honest_fnr"]),
+            ("errors", meta["untrusted_honest_fpr"], meta["untrusted_honest_fnr"]),
         ]:
             calc = build_blue_team_win_calculator(
                 num_tasks=2000,
@@ -180,8 +180,8 @@ class TestAsymmetricHonestErrors:
                 slack_honeypots=2,
                 blue_team_replace_fnr=0.0,
                 roc_function=fn,
-                untrusted_monitor_epsilon=eps,
-                untrusted_monitor_fnr=fnr,
+                untrusted_honest_fpr=eps,
+                untrusted_honest_fnr=fnr,
             )
             _, outcomes[name] = calc(params)
         assert (
@@ -196,7 +196,7 @@ class TestAsymmetricHonestErrors:
             attacks_df=attacks_df, honeypots_df=honeypots_df, benign_df=benign_df
         )
         assert fn.type == "joint_empirical"
-        assert meta["untrusted_monitor_epsilon"] == 0.0
+        assert meta["untrusted_honest_fpr"] == 0.0
         assert meta["untrusted_honest_fnr"] == 0.0
 
 

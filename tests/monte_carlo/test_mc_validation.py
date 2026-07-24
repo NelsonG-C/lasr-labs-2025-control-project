@@ -9,7 +9,7 @@ Covers:
 1. Off-grid joint-surface values are achievable: randomizing thresholds over
    adjacent grid nodes with the bilinear weights reproduces the interpolated
    pass rate (the SPEC's core achievability claim, on the real API).
-2. epsilon matches the simulated benign false-flag rate.
+2. The honest FPR matches the simulated benign false-flag rate.
 3. The blue-team win calculator's outcome distribution matches an episode
    simulator that follows the model's own event semantics (per failed
    honeypot, red is caught with probability 1/slack — the PGF reading of the
@@ -71,7 +71,7 @@ class TestJointSurfaceAchievability:
         sigma = np.sqrt(0.25 / N_MC)
         assert analytic_pass == pytest.approx(mc_pass, abs=6 * sigma + 1e-3)
 
-    def test_epsilon_matches_simulated_benign_flag_rate(self):
+    def test_honest_fpr_matches_simulated_benign_flag_rate(self):
         attacks_df, honeypots_df, benign_df = make_score_dataframes(rho=0.6, seed=8)
         _, meta = build_roc_function(
             attacks_df=attacks_df, honeypots_df=honeypots_df, benign_df=benign_df
@@ -80,7 +80,7 @@ class TestJointSurfaceAchievability:
         rng = np.random.default_rng(12)
         susp_b = benign_df["untrusted_suspiciousness_score"].to_numpy()
         flags = susp_b[rng.integers(0, len(susp_b), size=N_MC)] >= s
-        assert meta["untrusted_monitor_epsilon"] == pytest.approx(
+        assert meta["untrusted_honest_fpr"] == pytest.approx(
             np.mean(flags), abs=6 * np.sqrt(0.25 / N_MC)
         )
 
@@ -152,7 +152,7 @@ class TestGameLevelSimulation:
             honeypots_df=honeypots_df,
             benign_df=benign_df,
         )
-        epsilon = config.monitor_roc_fn_metadata["untrusted_monitor_epsilon"]
+        honest_fpr = config.monitor_roc_fn_metadata["untrusted_honest_fpr"]
         honest_fnr = config.monitor_roc_fn_metadata["untrusted_honest_fnr"]
         fn = config.monitor_roc_fn
         rng = np.random.default_rng(13)
@@ -173,8 +173,8 @@ class TestGameLevelSimulation:
             budget = budget_fraction * num_tasks
             num_honeypots = budget * honeypot_fraction
             audit_fraction = (budget - num_honeypots) / num_tasks
-            trusted_fnr = max(audit_fraction - epsilon, 0.0)
-            p_audited = min(audit_fraction / (epsilon + 1 / num_tasks), 1.0)
+            trusted_fnr = max(audit_fraction - honest_fpr, 0.0)
+            p_audited = min(audit_fraction / (honest_fpr + 1 / num_tasks), 1.0)
             not_flagged, u_fpr = fn(t, trusted_fnr)
             catch_rate = (1 - not_flagged) * p_audited
             pass_rate, _ = fn(t, min(trusted_fnr, 1.0))
@@ -184,7 +184,7 @@ class TestGameLevelSimulation:
                 n_episodes=N_MC,
                 num_tasks=num_tasks,
                 num_honeypots=num_honeypots,
-                honest_error_sum=epsilon + honest_fnr,
+                honest_error_sum=honest_fpr + honest_fnr,
                 u_fpr=u_fpr,
                 slack=slack,
                 p_attack=p_attack,

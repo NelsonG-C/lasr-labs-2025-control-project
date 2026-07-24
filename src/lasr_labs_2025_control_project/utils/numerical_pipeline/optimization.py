@@ -203,8 +203,8 @@ def build_optimization_config(
         roc_function=roc_function,
         slack_honeypots=slack_honeypots,
         blue_team_replace_fnr=blue_team_replace_fnr,
-        untrusted_monitor_epsilon=metadata_copy.get("untrusted_monitor_epsilon", 0.0),
-        untrusted_monitor_fnr=metadata_copy.get("untrusted_honest_fnr", 0.0),
+        untrusted_honest_fpr=metadata_copy.get("untrusted_honest_fpr", 0.0),
+        untrusted_honest_fnr=metadata_copy.get("untrusted_honest_fnr", 0.0),
     )
 
     return OptimizationConfig(
@@ -351,10 +351,10 @@ def optimize_parameters(
             slack_honeypots=base_config.slack_honeypots,
             blue_team_replace_fnr=replace_fnr,
             roc_function=base_config.monitor_roc_fn,
-            untrusted_monitor_epsilon=base_config.monitor_roc_fn_metadata.get(
-                "untrusted_monitor_epsilon", 0.0
+            untrusted_honest_fpr=base_config.monitor_roc_fn_metadata.get(
+                "untrusted_honest_fpr", 0.0
             ),
-            untrusted_monitor_fnr=base_config.monitor_roc_fn_metadata.get(
+            untrusted_honest_fnr=base_config.monitor_roc_fn_metadata.get(
                 "untrusted_honest_fnr", 0.0
             ),
         )
@@ -433,8 +433,8 @@ def build_blue_team_win_calculator(
     slack_honeypots: float,
     blue_team_replace_fnr: float,
     roc_function: DoubleROCFunctionType,
-    untrusted_monitor_epsilon: float,
-    untrusted_monitor_fnr: float = 0.0,
+    untrusted_honest_fpr: float,
+    untrusted_honest_fnr: float = 0.0,
 ) -> Callable[[Dict[str, np.ndarray]], Tuple[np.ndarray, Dict[str, np.ndarray]]]:
     """Build a win probability calculator for the blue team.
 
@@ -455,8 +455,8 @@ def build_blue_team_win_calculator(
         slack_honeypots: Number of honeypot failures red team can tolerate
         blue_team_replace_fnr: Trusted monitor FNR for replacement decisions
         roc_function: Double ROC function (untrusted threshold, audit FNR) -> (FNR, FPR)
-        untrusted_monitor_epsilon: Honest UM benign false-flag rate (FPR direction)
-        untrusted_monitor_fnr: Honest UM backdoor miss rate (FNR direction)
+        untrusted_honest_fpr: Honest UM benign false-flag rate (FPR direction)
+        untrusted_honest_fnr: Honest UM backdoor miss rate (FNR direction)
 
     Returns:
         Function mapping parameter dict to (blue_win_probability, outcome_distribution)
@@ -492,11 +492,11 @@ def build_blue_team_win_calculator(
         audit_fraction = num_audits / num_tasks_internal
 
         # If we have extra audits, use them for the trusted monitor
-        trusted_monitor_fnr = max(audit_fraction - untrusted_monitor_epsilon, 0.0)
+        trusted_monitor_fnr = max(audit_fraction - untrusted_honest_fpr, 0.0)
 
         # If we have too few audits, we cannot audit everything flagged by untrusted monitor
         p_audited = min(
-            audit_fraction / (untrusted_monitor_epsilon + 1 / num_tasks_internal), 1.0
+            audit_fraction / (untrusted_honest_fpr + 1 / num_tasks_internal), 1.0
         )
 
         # Use our trusted monitor and untrusted monitor
@@ -523,7 +523,7 @@ def build_blue_team_win_calculator(
         # approximation, off by ~0.02 at typical parameters (n ~ 18,
         # U_fpr ~ 0.25 is outside Poisson territory).
         effective_honeypots = num_honeypots * np.maximum(
-            1 - (untrusted_monitor_epsilon + untrusted_monitor_fnr), 0.0
+            1 - (untrusted_honest_fpr + untrusted_honest_fnr), 0.0
         )
         p_red_team_passes_honeypots = (
             1 - U_fpr / slack_honeypots_internal

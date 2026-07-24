@@ -400,10 +400,10 @@ def _clone_config_with_replace_fnr(
         slack_honeypots=base_config.slack_honeypots,
         blue_team_replace_fnr=replace_fnr,
         roc_function=base_config.monitor_roc_fn,
-        untrusted_monitor_epsilon=base_config.monitor_roc_fn_metadata.get(
-            "untrusted_monitor_epsilon", 0
+        untrusted_honest_fpr=base_config.monitor_roc_fn_metadata.get(
+            "untrusted_honest_fpr", 0
         ),
-        untrusted_monitor_fnr=base_config.monitor_roc_fn_metadata.get(
+        untrusted_honest_fnr=base_config.monitor_roc_fn_metadata.get(
             "untrusted_honest_fnr", 0
         ),
     )
