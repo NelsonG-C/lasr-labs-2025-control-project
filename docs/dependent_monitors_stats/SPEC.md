@@ -29,10 +29,10 @@ logs not locatable from this machine — see results_synthetic_* folder;
   monitors mean red's colluded attacks are disproportionately TM-visible.
   Whether real data helps or hurts depends on its actual copula; this is
   exactly why the reviewers wanted it measured rather than assumed.
-- Implication for the honest threshold rule: Youden's J ignores audit-budget
-  burn. If the real benign FPR at Youden is non-trivial, consider calibrating
-  s to the audit budget instead (still a fixed, data-derived rule) — decide
-  when real data is in hand.
+- Honest threshold rule: **Youden's J, decided** (Jonathan, 2026-07-24). The
+  operating point is a fixed capability parameter of the untrusted model, not
+  a term the blue team gets to optimize — do not add it to the parameter
+  space or calibrate it to the audit budget.
 
 Still to do: run on real APPS/BigCodeBench data (blocked: eval logs not
 found in repo history, HF, GitHub releases, paper, Slack, or Drive — ask
