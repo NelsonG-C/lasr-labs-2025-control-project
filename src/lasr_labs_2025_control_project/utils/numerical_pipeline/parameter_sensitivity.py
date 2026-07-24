@@ -406,6 +406,9 @@ def _clone_config_with_replace_fnr(
         untrusted_honest_fnr=base_config.monitor_roc_fn_metadata.get(
             "untrusted_honest_fnr", 0
         ),
+        untrusted_honest_extra_fpr=base_config.monitor_roc_fn_metadata.get(
+            "untrusted_honest_extra_fpr_fn"
+        ),
     )
 
     metadata_copy = dict(base_config.monitor_roc_fn_metadata or {})
