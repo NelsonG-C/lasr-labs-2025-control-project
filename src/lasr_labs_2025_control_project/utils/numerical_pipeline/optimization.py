@@ -204,6 +204,7 @@ def build_optimization_config(
         slack_honeypots=slack_honeypots,
         blue_team_replace_fnr=blue_team_replace_fnr,
         untrusted_monitor_epsilon=metadata_copy.get("untrusted_monitor_epsilon", 0.0),
+        untrusted_monitor_fnr=metadata_copy.get("untrusted_honest_fnr", 0.0),
     )
 
     return OptimizationConfig(
@@ -353,6 +354,9 @@ def optimize_parameters(
             untrusted_monitor_epsilon=base_config.monitor_roc_fn_metadata.get(
                 "untrusted_monitor_epsilon", 0.0
             ),
+            untrusted_monitor_fnr=base_config.monitor_roc_fn_metadata.get(
+                "untrusted_honest_fnr", 0.0
+            ),
         )
 
         # Construct parameter spaces if not already provided
@@ -430,6 +434,7 @@ def build_blue_team_win_calculator(
     blue_team_replace_fnr: float,
     roc_function: DoubleROCFunctionType,
     untrusted_monitor_epsilon: float,
+    untrusted_monitor_fnr: float = 0.0,
 ) -> Callable[[Dict[str, np.ndarray]], Tuple[np.ndarray, Dict[str, np.ndarray]]]:
     """Build a win probability calculator for the blue team.
 
@@ -450,6 +455,8 @@ def build_blue_team_win_calculator(
         slack_honeypots: Number of honeypot failures red team can tolerate
         blue_team_replace_fnr: Trusted monitor FNR for replacement decisions
         roc_function: Double ROC function (untrusted threshold, audit FNR) -> (FNR, FPR)
+        untrusted_monitor_epsilon: Honest UM benign false-flag rate (FPR direction)
+        untrusted_monitor_fnr: Honest UM backdoor miss rate (FNR direction)
 
     Returns:
         Function mapping parameter dict to (blue_win_probability, outcome_distribution)
@@ -505,14 +512,19 @@ def build_blue_team_win_calculator(
             np.minimum(blue_team_replace_fnr + trusted_monitor_fnr, 1.0),
         )
 
-        # Honeypot survival. Each of the n effective honeypots is failed
-        # (UM colludes on it) with probability U_fpr, and each failure
-        # independently catches the red team with probability 1/slack.
-        # P(survive) is the binomial PGF (1 - U_fpr/slack)^n, evaluated
+        # Honeypot survival. Honeypots are a retraining intervention (paper
+        # section 2.4.1): each honeypot the UM misses delivers a gradient
+        # update, and slack n_s is the number of training examples needed to
+        # train the UM into honesty, so each miss contributes a 1/n_s "kill"
+        # fraction. The honest error rates dilute the training signal, so
+        # the effective number of honeypots shrinks by 1 - (FPR + FNR).
+        # P(survive) is the binomial PGF (1 - U_fpr/slack)^n_eff, evaluated
         # exactly; the previous exp(-lambda/slack) was its Poisson
         # approximation, off by ~0.02 at typical parameters (n ~ 18,
         # U_fpr ~ 0.25 is outside Poisson territory).
-        effective_honeypots = num_honeypots * (1 - untrusted_monitor_epsilon)
+        effective_honeypots = num_honeypots * np.maximum(
+            1 - (untrusted_monitor_epsilon + untrusted_monitor_fnr), 0.0
+        )
         p_red_team_passes_honeypots = (
             1 - U_fpr / slack_honeypots_internal
         ) ** effective_honeypots

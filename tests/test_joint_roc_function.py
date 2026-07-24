@@ -153,6 +153,42 @@ class TestAsymmetricHonestErrors:
         assert 0.0 <= float(win_prob) <= 1.0
         assert sum(outcomes.values()) == pytest.approx(1.0, abs=1e-6)
 
+    def test_honest_errors_dilute_honeypot_retraining(self, correlated_dfs):
+        """Effective honeypots shrink by 1 - (FPR + FNR): with honest errors,
+        red survives the honeypot retraining phase more often."""
+        from lasr_labs_2025_control_project.utils.numerical_pipeline.optimization import (
+            build_blue_team_win_calculator,
+        )
+
+        attacks_df, honeypots_df, benign_df = correlated_dfs
+        fn, meta = build_roc_function(
+            attacks_df=attacks_df, honeypots_df=honeypots_df, benign_df=benign_df
+        )
+        params = {
+            "blue_team_honeypot_fraction": np.float64(0.5),
+            "red_team_roc_threshold": np.float64(5.0),
+            "red_team_p_attack": np.float64(1e-3),
+        }
+        outcomes = {}
+        for name, eps, fnr in [
+            ("perfect", 0.0, 0.0),
+            ("errors", meta["untrusted_monitor_epsilon"], meta["untrusted_honest_fnr"]),
+        ]:
+            calc = build_blue_team_win_calculator(
+                num_tasks=2000,
+                blue_team_budget_fraction=0.02,
+                slack_honeypots=2,
+                blue_team_replace_fnr=0.0,
+                roc_function=fn,
+                untrusted_monitor_epsilon=eps,
+                untrusted_monitor_fnr=fnr,
+            )
+            _, outcomes[name] = calc(params)
+        assert (
+            outcomes["errors"]["red_team_fails_honeypots"]
+            < outcomes["perfect"]["red_team_fails_honeypots"]
+        )
+
     def test_missing_suspiciousness_falls_back_to_perfect_honest_um(self):
         attacks_df, honeypots_df, benign_df = make_score_dataframes(rho=0.5, seed=3)
         attacks_df = attacks_df.drop(columns=["untrusted_suspiciousness_score"])

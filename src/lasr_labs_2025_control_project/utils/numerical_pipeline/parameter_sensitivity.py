@@ -403,6 +403,9 @@ def _clone_config_with_replace_fnr(
         untrusted_monitor_epsilon=base_config.monitor_roc_fn_metadata.get(
             "untrusted_monitor_epsilon", 0
         ),
+        untrusted_monitor_fnr=base_config.monitor_roc_fn_metadata.get(
+            "untrusted_honest_fnr", 0
+        ),
     )
 
     metadata_copy = dict(base_config.monitor_roc_fn_metadata or {})

@@ -168,14 +168,19 @@ Since `s` is fixed, ε stays a scalar snapshotted at config-build time and the
 existing `f(t, fpr_t)` two-argument ROC interface is unchanged — `s` is
 curried into the joint closure.
 
-### 3. Honeypot side (unchanged semantics, noted for the paper)
+### 3. Honeypot side (retraining semantics, per paper §2.4.1)
 
-Honeypot failure stays `P(coll ≥ t | honeypot)` — marginal on honeypots. The
-existing comment (roc_function_builders.py:168-171) documents this as
-intentional: honeypot false positives are those *due to colluding*, not due to
-honestly missing the honeypot. If reviewers push, the honeypot joint
-`(coll, susp)` is also available in `honeypots_df` and slots into the same
-machinery.
+Honeypots are a **retraining intervention**, not a shutdown cue: each honeypot
+the UM misses delivers a gradient update pushing it toward honesty, and slack
+`n_s` is the number of training examples needed — hence the per-miss `1/n_s`
+kill fraction in the survival PGF. The collusion-failure rate stays the
+marginal `P(coll ≥ t | honeypot)` (per the intentional comment at
+roc_function_builders.py:168-171: failures *due to colluding*, not honest
+misses). The honest error rates instead dilute the retraining signal:
+**effective honeypots = n_honeypots × (1 − (FPR + FNR))**, with FPR = ε and
+FNR = the honest miss rate, both at the fixed operating point s. This
+generalizes the legacy `(1 − ε)` factor (which was inert anyway, since ε was
+never populated) to the asymmetric rates.
 
 ## Implementation plan
 

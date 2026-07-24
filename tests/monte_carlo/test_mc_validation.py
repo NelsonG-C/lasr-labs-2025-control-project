@@ -93,7 +93,7 @@ class TestGameLevelSimulation:
         n_episodes: int,
         num_tasks: int,
         num_honeypots: float,
-        epsilon: float,
+        honest_error_sum: float,
         u_fpr: float,
         slack: float,
         p_attack: float,
@@ -101,11 +101,15 @@ class TestGameLevelSimulation:
         attack_pass_rate: float,
     ) -> dict[str, float]:
         """Episode simulator following the analytic model's event semantics."""
-        # Binomial honeypot failures (physical reality). The analytic model
-        # uses the exact binomial PGF (1 - u_fpr/slack)^n, so this matches up
-        # to rounding n to an integer for the draw.
+        # Binomial honeypot failures (physical reality). Honest errors dilute
+        # the retraining signal, shrinking effective honeypots by
+        # 1 - (FPR + FNR). The analytic model uses the exact binomial PGF
+        # (1 - u_fpr/slack)^n_eff, so this matches up to rounding n_eff to an
+        # integer for the draw.
         n_hp = rng.binomial(
-            int(round(num_honeypots * (1 - epsilon))), u_fpr, size=n_episodes
+            int(round(num_honeypots * max(1 - honest_error_sum, 0.0))),
+            u_fpr,
+            size=n_episodes,
         )
         # Each failed honeypot independently catches red w.p. 1/slack
         # (PGF: E[(1-1/s)^X] = (1 - u_fpr/s)^n, the analytic term).
@@ -149,6 +153,7 @@ class TestGameLevelSimulation:
             benign_df=benign_df,
         )
         epsilon = config.monitor_roc_fn_metadata["untrusted_monitor_epsilon"]
+        honest_fnr = config.monitor_roc_fn_metadata["untrusted_honest_fnr"]
         fn = config.monitor_roc_fn
         rng = np.random.default_rng(13)
 
@@ -179,7 +184,7 @@ class TestGameLevelSimulation:
                 n_episodes=N_MC,
                 num_tasks=num_tasks,
                 num_honeypots=num_honeypots,
-                epsilon=epsilon,
+                honest_error_sum=epsilon + honest_fnr,
                 u_fpr=u_fpr,
                 slack=slack,
                 p_attack=p_attack,
