@@ -101,15 +101,14 @@ class TestGameLevelSimulation:
         attack_pass_rate: float,
     ) -> dict[str, float]:
         """Episode simulator following the analytic model's event semantics."""
-        # Poisson is the model's own stated choice ("Simulate honeypots with
-        # the poisson distribution"). NB: a Binomial(n_honeypots, u_fpr) draw
-        # — the physical reality — differs from Poisson by ~0.02 in the
-        # fails-honeypots probability at typical parameters (n~18, p~0.25 is
-        # outside Poisson territory); that is a pre-existing model
-        # approximation, not part of what this test validates.
-        n_hp = rng.poisson(num_honeypots * (1 - epsilon) * u_fpr, size=n_episodes)
+        # Binomial honeypot failures (physical reality). The analytic model
+        # uses the exact binomial PGF (1 - u_fpr/slack)^n, so this matches up
+        # to rounding n to an integer for the draw.
+        n_hp = rng.binomial(
+            int(round(num_honeypots * (1 - epsilon))), u_fpr, size=n_episodes
+        )
         # Each failed honeypot independently catches red w.p. 1/slack
-        # (PGF of Poisson: E[(1-1/s)^X] = exp(-lambda/s), the analytic term).
+        # (PGF: E[(1-1/s)^X] = (1 - u_fpr/s)^n, the analytic term).
         fails_honeypots = rng.uniform(size=n_episodes) > (1 - 1 / slack) ** n_hp
 
         caught_upfront = rng.uniform(size=n_episodes) < 1 - (1 - p_attack) ** 10
