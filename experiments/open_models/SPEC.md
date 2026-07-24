@@ -59,7 +59,17 @@ configs (skipping the 12 `openai/ft:...` SFT configs, which are OpenAI-specific)
 | **H** honeypot generator | `tinker/openai/gpt-oss-120b` | Different lineage, ~U capability; generation-only |
 
 All three are verified available via `get_server_capabilities()` on our account
-and confirmed to generate/monitor in the required formats.
+and confirmed to actually generate/monitor in the required formats (a live
+sample call, not just presence in a list).
+
+Catalogue gotcha: the Tinker **website** models page is not authoritative for
+sampling — it's a curated/lagging view that mixes in training-only and
+`-Base` (pretrained, non-instruct) entries. What you can actually call is what
+`get_server_capabilities()` returns for your account, and even then "listed"
+does not guarantee "sampleable": e.g. `Qwen/Qwen3-30B-A3B-Instruct-2507` (our U)
+is callable but absent from the website, while `Qwen/Qwen3.5-35B-A3B` appears on
+the website yet returns `400 "Sampling is not supported"` (only its `-Base`
+exists here). Always confirm a model with an actual `sample` call before a run.
 
 Reasoning-model note (why H is gpt-oss, not Nemotron): the honeypot generator
 must emit `<final_code>`/`<secret_input>` within a reasonable token budget.
