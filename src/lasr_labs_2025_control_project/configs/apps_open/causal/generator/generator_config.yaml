@@ -1,0 +1,27 @@
+experiment_folder: experiments/apps_open/causal
+
+experiment_name: causal
+
+results_folder: results/
+
+defaults:
+  data_split: test
+
+runs:
+  attacks:
+    eval_mode: attack
+    system_prompt: causal_attack_prompt
+    save_path: generator/attacks.eval
+    model: tinker/Qwen/Qwen3-30B-A3B-Instruct-2507
+
+  honest:
+    eval_mode: honest
+    system_prompt: honest_policy_prompt
+    save_path: generator/honest.eval
+    model: tinker/Qwen/Qwen3-30B-A3B-Instruct-2507
+
+  honeypots:
+    eval_mode: attack
+    system_prompt: causal_attack_prompt
+    save_path: generator/honeypots.eval
+    model: tinker/meta-llama/Llama-3.2-3B

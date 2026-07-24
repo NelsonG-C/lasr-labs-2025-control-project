@@ -1,0 +1,19 @@
+experiment_folder: experiments/bcb_train
+
+experiment_name: bcb_train
+
+results_folder: results/minified/
+
+defaults:
+  transform:
+    type: minifier
+    remove_comments: true
+
+runs:
+  attacks:
+    eval_path: generator/attacks.eval
+    save_path: transforms/minified/attack_transformed.eval
+
+  honeypots:
+    eval_path: generator/honeypots.eval
+    save_path: transforms/minified/honeypots_transformed.eval

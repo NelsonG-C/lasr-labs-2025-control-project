@@ -1,0 +1,17 @@
+experiment_folder: experiments/bigcodebench_open/acausal_optimized
+
+experiment_name: acausal_optimized
+
+results_folder: results/
+
+defaults:
+  data_split: test
+  dataset_type: bigcodebench
+  limit: 10
+
+runs:
+  attacks:
+    eval_mode: attack
+    system_prompt: acausal_optimized_attack_policy_prompt_bcb
+    save_path: generator/attacks.eval
+    model: tinker/Qwen/Qwen3-30B-A3B-Instruct-2507

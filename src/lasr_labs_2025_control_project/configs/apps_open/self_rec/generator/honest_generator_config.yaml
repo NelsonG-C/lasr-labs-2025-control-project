@@ -1,0 +1,21 @@
+experiment_folder: experiments/self_rec_train
+
+experiment_name: self_rec_train
+
+results_folder: results/
+
+defaults:
+  data_split: train
+
+runs:
+  honest:
+    eval_mode: honest
+    system_prompt: honest_policy_prompt
+    save_path: generator/honest_attacks.eval
+    model: tinker/Qwen/Qwen3-30B-A3B-Instruct-2507
+
+  honeypots:
+    eval_mode: honest
+    system_prompt: honest_policy_prompt
+    save_path: generator/honest_honeypots.eval
+    model: tinker/meta-llama/Llama-3.2-3B

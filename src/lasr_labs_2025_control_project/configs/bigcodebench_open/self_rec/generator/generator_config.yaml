@@ -1,0 +1,28 @@
+experiment_folder: experiments/bigcodebench_open/self_rec
+
+experiment_name: self_rec_generator
+
+results_folder: results/
+
+defaults:
+  data_split: test
+  dataset_type: bigcodebench
+
+runs:
+  attacks:
+    eval_mode: attack
+    system_prompt: self_rec_attack_policy_prompt_bcb
+    save_path: generator/attacks.eval
+    model: tinker/Qwen/Qwen3-30B-A3B-Instruct-2507
+
+  honest:
+    eval_mode: honest
+    system_prompt: honest_policy_prompt_bcb
+    save_path: generator/honest.eval
+    model: tinker/Qwen/Qwen3-30B-A3B-Instruct-2507
+
+  honeypots:
+    eval_mode: attack
+    system_prompt: self_rec_attack_policy_prompt_bcb
+    save_path: generator/honeypots.eval
+    model: tinker/meta-llama/Llama-3.2-3B

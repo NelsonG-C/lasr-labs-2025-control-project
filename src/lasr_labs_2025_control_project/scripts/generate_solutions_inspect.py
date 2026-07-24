@@ -41,6 +41,7 @@ from lasr_labs_2025_control_project.scripts.helpers.metadata_dataclasses import 
     ModelInfo,
 )
 from lasr_labs_2025_control_project.settings.setting import AppsSetting
+from lasr_labs_2025_control_project.utils import tinker_provider  # noqa: F401  (registers tinker/ provider)
 from lasr_labs_2025_control_project.utils.config_loader import (
     DatasetType,
     DataSplit,

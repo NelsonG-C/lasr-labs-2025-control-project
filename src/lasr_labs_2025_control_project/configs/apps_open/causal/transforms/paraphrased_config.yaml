@@ -1,0 +1,27 @@
+experiment_folder: experiments/apps_open/causal
+
+experiment_name: causal
+
+results_folder: results/paraphrased/
+
+defaults:
+  transform:
+      type: llm
+      remove_comments: true
+      model_info:
+        model: tinker/Qwen/Qwen3-8B
+        system_prompt: LLM_SUMMARIZE_SYSTEM_PROMPT
+        base_prompt: LLM_SUMMARIZE_BASE_PROMPT
+
+runs:
+  attacks:
+    eval_path: generator/attacks.eval
+    save_path: transforms/paraphrased/attack_transformed.eval
+
+  honest:
+    eval_path: generator/honest.eval
+    save_path: transforms/paraphrased/honest_transformed.eval
+
+  honeypots:
+    eval_path: generator/honeypots.eval
+    save_path: transforms/paraphrased/honeypots_transformed.eval
