@@ -38,7 +38,14 @@ from lasr_labs_2025_control_project.utils.numerical_pipeline.roc_function_builde
     build_roc_function,
 )
 
-RHOS = [0.0, 0.3, 0.6]
+RHOS = [0.0, 0.6]
+# Honest-UM quality regimes: "noisy" gives epsilon ~ 0.16 (audit queue
+# swamped); "sharp" gives epsilon ~ 0.01, closer to the paper's near-perfect
+# UM suspiciousness ROC.
+VARIANTS = {
+    "noisy honest UM": dict(susp_attack=(7.0, 2.0), susp_benign=(2.5, 2.0)),
+    "sharp honest UM": dict(susp_attack=(8.5, 1.2), susp_benign=(1.5, 1.2)),
+}
 REPLACE_FNR_VALUES = [0.0, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5]
 MAX_ITERATIONS = 30
 NUM_TASKS = 2000
@@ -138,43 +145,59 @@ def main() -> None:
         "curves": {},
     }
 
-    fig, axes = plt.subplots(1, len(RHOS), figsize=(4.2 * len(RHOS), 4), sharey=True)
+    n_rows, n_cols = len(VARIANTS), len(RHOS)
+    fig, axes = plt.subplots(
+        n_rows, n_cols, figsize=(4.2 * n_cols, 3.8 * n_rows), sharey=True, sharex=True
+    )
+    axes = np.atleast_2d(axes)
     palette = sns.color_palette("colorblind")
 
-    for ax, rho in zip(np.atleast_1d(axes), RHOS):
-        dfs = make_score_dataframes(rho=rho, seed=0)
-        # Ablation: permute the TM column on attacks to remove cross-monitor
-        # dependence while keeping the joint model's honest-error treatment.
-        # (legacy vs shuffled) isolates the epsilon/asymmetry effect;
-        # (shuffled vs joint) isolates the dependence effect.
-        shuffled_attacks = dfs[0].copy()
-        shuffled_attacks["trusted_suspiciousness_score"] = np.random.default_rng(
-            1
-        ).permutation(shuffled_attacks["trusted_suspiciousness_score"].to_numpy())
-        dfs_shuffled = (shuffled_attacks, dfs[1], dfs[2])
+    for row, (variant, susp_kwargs) in enumerate(VARIANTS.items()):
+        for col, rho in enumerate(RHOS):
+            ax = axes[row, col]
+            dfs = make_score_dataframes(rho=rho, seed=0, **susp_kwargs)
+            # Ablation: permute the TM column on attacks to remove
+            # cross-monitor dependence while keeping the joint model's
+            # honest-error treatment. (legacy vs shuffled) isolates the
+            # epsilon/asymmetry effect; (shuffled vs joint) isolates the
+            # dependence effect.
+            shuffled_attacks = dfs[0].copy()
+            shuffled_attacks["trusted_suspiciousness_score"] = np.random.default_rng(
+                1
+            ).permutation(shuffled_attacks["trusted_suspiciousness_score"].to_numpy())
+            dfs_shuffled = (shuffled_attacks, dfs[1], dfs[2])
 
-        entry = {}
-        for label, run_dfs, flag, color in [
-            ("joint (dependence-aware)", dfs, False, palette[0]),
-            ("joint, TM shuffled (no dependence)", dfs_shuffled, False, palette[2]),
-            ("independence assumption (legacy)", dfs, True, palette[3]),
-        ]:
-            print(f"rho={rho} model={label} ...", flush=True)
-            curve = run_curve(run_dfs, assume_independent=flag)
-            entry[label] = curve
-            pts = sorted(curve["points"], key=lambda p: p["usefulness"])
-            ax.plot(
-                [p["safety"] for p in pts],
-                [p["usefulness"] for p in pts],
-                marker="o",
-                color=color,
-                label=label,
-            )
-        results["curves"][f"rho={rho}"] = entry
-        ax.set_title(f"score dependence ρ = {rho}")
-        ax.set_xlabel("Safety (blue team win rate)")
-    np.atleast_1d(axes)[0].set_ylabel("Usefulness")
-    np.atleast_1d(axes)[0].legend(loc="lower left", fontsize=8)
+            entry = {}
+            for label, run_dfs, flag, color in [
+                ("joint (dependence-aware)", dfs, False, palette[0]),
+                (
+                    "joint, TM shuffled (no dependence)",
+                    dfs_shuffled,
+                    False,
+                    palette[2],
+                ),
+                ("independence assumption (legacy)", dfs, True, palette[3]),
+            ]:
+                print(f"{variant} rho={rho} model={label} ...", flush=True)
+                curve = run_curve(run_dfs, assume_independent=flag)
+                entry[label] = curve
+                pts = sorted(curve["points"], key=lambda p: p["usefulness"])
+                ax.plot(
+                    [p["safety"] for p in pts],
+                    [p["usefulness"] for p in pts],
+                    marker="o",
+                    markersize=3,
+                    color=color,
+                    label=label,
+                )
+            results["curves"][f"{variant}|rho={rho}"] = entry
+            eps = entry["joint (dependence-aware)"]["untrusted_monitor_epsilon"]
+            ax.set_title(f"{variant}, ρ = {rho} (ε = {eps:.3f})", fontsize=10)
+            if row == n_rows - 1:
+                ax.set_xlabel("Safety (blue team win rate)")
+            if col == 0:
+                ax.set_ylabel("Usefulness")
+    axes[0, 0].legend(loc="lower left", fontsize=7)
     fig.suptitle(
         "Safety-usefulness: joint empirical model vs independence assumption "
         "(synthetic data)"

@@ -22,6 +22,8 @@ def make_score_dataframes(
     n_honeypots: int = 1500,
     n_benign: int = 3000,
     seed: int = 0,
+    susp_attack: tuple[float, float] = (7.0, 2.0),
+    susp_benign: tuple[float, float] = (2.5, 2.0),
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Synthetic (attacks_df, honeypots_df, benign_df).
 
@@ -44,7 +46,7 @@ def make_score_dataframes(
         {
             "trusted_suspiciousness_score": _discretize(u[:, 0], 6.5, 2.0),
             "untrusted_collusion_score": _discretize(u[:, 1], 5.5, 2.5),
-            "untrusted_suspiciousness_score": _discretize(u[:, 2], 7.0, 2.0),
+            "untrusted_suspiciousness_score": _discretize(u[:, 2], *susp_attack),
         }
     )
     honeypots_df = pd.DataFrame(
@@ -60,7 +62,7 @@ def make_score_dataframes(
                 rng.uniform(size=n_benign), 3.0, 2.0
             ),
             "untrusted_suspiciousness_score": _discretize(
-                rng.uniform(size=n_benign), 2.5, 2.0
+                rng.uniform(size=n_benign), *susp_benign
             ),
         }
     )
