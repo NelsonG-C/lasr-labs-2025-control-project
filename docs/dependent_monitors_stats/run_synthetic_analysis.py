@@ -143,13 +143,24 @@ def main() -> None:
 
     for ax, rho in zip(np.atleast_1d(axes), RHOS):
         dfs = make_score_dataframes(rho=rho, seed=0)
+        # Ablation: permute the TM column on attacks to remove cross-monitor
+        # dependence while keeping the joint model's honest-error treatment.
+        # (legacy vs shuffled) isolates the epsilon/asymmetry effect;
+        # (shuffled vs joint) isolates the dependence effect.
+        shuffled_attacks = dfs[0].copy()
+        shuffled_attacks["trusted_suspiciousness_score"] = np.random.default_rng(
+            1
+        ).permutation(shuffled_attacks["trusted_suspiciousness_score"].to_numpy())
+        dfs_shuffled = (shuffled_attacks, dfs[1], dfs[2])
+
         entry = {}
-        for label, flag, color in [
-            ("joint (dependence-aware)", False, palette[0]),
-            ("independence assumption", True, palette[3]),
+        for label, run_dfs, flag, color in [
+            ("joint (dependence-aware)", dfs, False, palette[0]),
+            ("joint, TM shuffled (no dependence)", dfs_shuffled, False, palette[2]),
+            ("independence assumption (legacy)", dfs, True, palette[3]),
         ]:
             print(f"rho={rho} model={label} ...", flush=True)
-            curve = run_curve(dfs, assume_independent=flag)
+            curve = run_curve(run_dfs, assume_independent=flag)
             entry[label] = curve
             pts = sorted(curve["points"], key=lambda p: p["usefulness"])
             ax.plot(
