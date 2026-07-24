@@ -55,7 +55,7 @@ configs (skipping the 12 `openai/ft:...` SFT configs, which are OpenAI-specific)
 | Role | Model | Rationale |
 |------|-------|-----------|
 | **U** untrusted generator + monitor | `tinker/Qwen/Qwen3-30B-A3B-Instruct-2507` | ~GPT-4.1-level, non-thinking instruct |
-| **T** trusted monitor + paraphraser | `tinker/Qwen/Qwen3-8B` | Deliberately weak, same Qwen3 series |
+| **T** trusted monitor + paraphraser | `tinker/Qwen/Qwen3.5-4B` | Deliberately weak; Qwen3.5 (a different series from U's Qwen3) |
 | **H** honeypot generator | `tinker/openai/gpt-oss-120b` | Different lineage, ~U capability; generation-only |
 
 All three are verified available via `get_server_capabilities()` on our account
@@ -73,9 +73,9 @@ inserts the empty `<think></think>` block) — Nemotron honours neither reliably
 gpt-oss-120b is the closer capability match to U. The provider default
 `max_tokens` is 4096 so generators reach their closing tag.
 
-Caveat to revisit before the real run:
-- T (`Qwen3-8B`) is a smaller same-series model rather than a literal "previous
-  series"; the capability gap to U is what matters for the trusted-weak role.
+U (Qwen3) and T (Qwen3.5) are different Qwen generations, so the trusted monitor
+is a distinct series from the untrusted model, and H (gpt-oss) is a distinct
+lineage from both.
 
 ## Testing
 

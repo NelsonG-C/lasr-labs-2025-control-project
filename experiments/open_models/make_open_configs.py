@@ -36,7 +36,7 @@ CONFIGS = REPO_ROOT / "src/lasr_labs_2025_control_project/configs"
 # closed model -> open (Tinker) replacement
 MODEL_MAP = {
     "openai/gpt-4.1-2025-04-14": "tinker/Qwen/Qwen3-30B-A3B-Instruct-2507",  # U
-    "openai/gpt-4o-mini": "tinker/Qwen/Qwen3-8B",  # T (weak, same Qwen3 series)
+    "openai/gpt-4o-mini": "tinker/Qwen/Qwen3.5-4B",  # T (weak; Qwen3.5 vs U's Qwen3)
     "google/gemini-2.5-flash": "tinker/openai/gpt-oss-120b",  # H (different lineage, ~U cap.)
 }
 

@@ -9,7 +9,7 @@ defaults:
       type: llm
       remove_comments: true
       model_info:
-        model: tinker/Qwen/Qwen3-8B
+        model: tinker/Qwen/Qwen3.5-4B
         system_prompt: LLM_SUMMARIZE_SYSTEM_PROMPT
         base_prompt: LLM_SUMMARIZE_BASE_PROMPT
 

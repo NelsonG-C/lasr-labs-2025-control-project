@@ -17,7 +17,7 @@ defaults:
 
     - trusted_backdoor_monitor:
         model_info:
-          model: tinker/Qwen/Qwen3-8B
+          model: tinker/Qwen/Qwen3.5-4B
           system_prompt: DEFAULT_HONEST_MONITOR_SYSTEM_PROMPT
           base_prompt: MONITOR_USER_PROMPT
         remove_comments: true
