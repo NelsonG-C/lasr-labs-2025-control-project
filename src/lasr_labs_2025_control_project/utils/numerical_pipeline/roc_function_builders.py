@@ -38,6 +38,17 @@ def build_roc_function(
     distribution of their scores on attacks (see build_joint_roc_function).
     Pass assume_independent=True to recover the legacy product-of-marginals
     model with a symmetric honest UM error rate.
+
+    The honest UM role is resolved in precedence order from the columns
+    present (see SPEC_binary_honest.md):
+      1. `untrusted_honest_score` (bool): the honest verdict per sample. No
+         operating point is chosen; honest errors are per-sample events whose
+         correlation with the TM score is taken from the data on both the
+         attack side (coverage overlap) and the benign side (audit-demand
+         overlap).
+      2. `untrusted_suspiciousness_score` (numeric): thresholded once at
+         Youden's J — a fixed capability parameter of U, not blue-optimizable.
+      3. Neither: perfect honest UM (legacy fallback).
     """
 
     # Initialize score dicts to None for proper scoping
@@ -381,6 +392,12 @@ def build_joint_roc_function(
     # --- Fixed honest operating point of the untrusted monitor --------------
     if have_bool:
         honest_threshold = float("nan")  # verdict is already binary
+        # um_reports is the per-sample honest flag, row-aligned with the TM
+        # and collusion scores. Feeding it into the joint pass surface below
+        # means honest-FNR x TM-FNR correlation is taken from the data: if
+        # the UM honestly misses the same subtle attacks the TM misses, the
+        # OR-coverage degrades relative to the independence product, because
+        # both miss events come from the same row.
         um_reports = attack_rows["honest"].to_numpy().astype(float)
         honest_fnr = float(1.0 - um_reports.mean())
         honest_fpr = float(honest_b.mean())  # type: ignore[union-attr]
