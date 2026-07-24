@@ -8,9 +8,33 @@ sequestered in `tests/monte_carlo/` behind the `mc` marker (deselected by
 default, run with `pytest -m mc`). Implementation-plan step 3 (finite-set red
 best response) deferred: the double oracle converges cleanly on the
 piecewise-multilinear surface (gap 0 in ~18 iterations on synthetic data).
-On synthetic rho=0.6 scores, safety drops 0.84 -> 0.34 vs the independence
-model — dependence is first-order, as the reviewers suspected. Still to do:
-run on real APPS/BigCodeBench data, copula sensitivity figure.
+
+**Synthetic-data findings** (`run_synthetic_analysis.py`, real APPS/BCB eval
+logs not locatable from this machine — see results_synthetic_* folder;
+3-way decomposition: legacy / joint-with-TM-shuffled / joint):
+
+- The **epsilon bug fix dominates when the honest UM is noisy**: with
+  ε = 0.16 (benign false-flag rate at the Youden operating point), the honest
+  UM swamps the audit budget (p_audited ≈ audit_fraction/ε) and safety at
+  full usefulness falls 0.85 → 0.36 *even at ρ = 0*. An earlier version of
+  this SPEC attributed that drop to dependence; the ρ = 0 ablation shows it
+  is almost entirely the ε wiring. With a sharp honest UM (ε ≈ 0.007, closer
+  to the paper's near-perfect UM suspiciousness ROC) the legacy-vs-joint gap
+  at ρ = 0 is only ~0.03.
+- The **dependence effect is modest and direction-dependent** on Gaussian-
+  copula synthetic data: at ρ = 0.6 (sharp regime) the joint model gives
+  ~0.02 *higher* safety than the TM-shuffled ablation — positively correlated
+  monitors mean red's colluded attacks are disproportionately TM-visible.
+  Whether real data helps or hurts depends on its actual copula; this is
+  exactly why the reviewers wanted it measured rather than assumed.
+- Implication for the honest threshold rule: Youden's J ignores audit-budget
+  burn. If the real benign FPR at Youden is non-trivial, consider calibrating
+  s to the audit budget instead (still a fixed, data-derived rule) — decide
+  when real data is in hand.
+
+Still to do: run on real APPS/BigCodeBench data (blocked: eval logs not
+found in repo history, HF, GitHub releases, paper, Slack, or Drive — ask
+Nelson), copula sensitivity figure.
 **Date:** 2026-07-24
 
 ## Reviewer requirements
