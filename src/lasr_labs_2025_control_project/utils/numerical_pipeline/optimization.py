@@ -153,6 +153,7 @@ def build_optimization_config(
     blue_team_replace_fnr: float = 0.0,
     disable_trusted_monitor: bool = False,
     disable_untrusted_monitor: bool = False,
+    assume_independent: bool = False,
 ) -> OptimizationConfig:
     """Build an OptimizationConfig from raw DataFrames.
 
@@ -188,6 +189,7 @@ def build_optimization_config(
         benign_df=benign_df,
         disable_trusted_monitor=disable_trusted_monitor,
         disable_untrusted_monitor=disable_untrusted_monitor,
+        assume_independent=assume_independent,
     )
 
     metadata_copy = deepcopy(roc_function_metadata)

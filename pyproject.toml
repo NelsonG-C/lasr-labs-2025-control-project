@@ -49,6 +49,9 @@ reportAssignmentType = "warning"
 reportReturnType = "warning"
 
 [tool.pytest.ini_options]
+# Monte Carlo validation tests (tests/monte_carlo/) are deselected by
+# default; run them explicitly with `pytest -m mc`.
+addopts = "-m 'not mc'"
 markers = [
     "mc: marks tests that rely on Monte Carlo simulation",
     "slow: marks tests as relatively slow",

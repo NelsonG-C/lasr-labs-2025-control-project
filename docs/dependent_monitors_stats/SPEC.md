@@ -1,7 +1,16 @@
 # SPEC: Dependence-aware stats model with asymmetric honest UM errors
 
 **Branch:** `feature/dependent-monitors-stats-model`
-**Status:** design
+**Status:** phase 1 implemented (2026-07-24) — joint model is the default in
+`build_roc_function`, epsilon wired from benign data, legacy model behind
+`assume_independent=True`. Unit tests in `tests/`; Monte-Carlo validation
+sequestered in `tests/monte_carlo/` behind the `mc` marker (deselected by
+default, run with `pytest -m mc`). Implementation-plan step 3 (finite-set red
+best response) deferred: the double oracle converges cleanly on the
+piecewise-multilinear surface (gap 0 in ~18 iterations on synthetic data).
+On synthetic rho=0.6 scores, safety drops 0.84 -> 0.34 vs the independence
+model — dependence is first-order, as the reviewers suspected. Still to do:
+run on real APPS/BigCodeBench data, copula sensitivity figure.
 **Date:** 2026-07-24
 
 ## Reviewer requirements
