@@ -19,4 +19,4 @@ runs:
     eval_mode: attack
     system_prompt: self_rec_attack_policy_prompt_bcb
     save_path: generator/honeypots.eval
-    model: tinker/meta-llama/Llama-3.2-3B
+    model: tinker/openai/gpt-oss-120b

@@ -18,4 +18,4 @@ runs:
     eval_mode: honest
     system_prompt: honest_policy_prompt
     save_path: generator/honest_honeypots.eval
-    model: tinker/meta-llama/Llama-3.2-3B
+    model: tinker/openai/gpt-oss-120b

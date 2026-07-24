@@ -16,7 +16,14 @@ Model roles (verify availability with
 -- the live catalogue changes):
   U (untrusted generator + collusion/backdoor monitor): ~GPT-4.1-level
   T (trusted backdoor monitor + LLM paraphraser):        deliberately weak
-  H (honeypot generator only):                           different lineage
+  H (honeypot generator only):                           different lineage, ~U cap.
+
+H must follow the generation format (emit <final_code>/<secret_input>) within a
+reasonable token budget. Heavy-reasoning models are unsuitable as generators:
+NVIDIA Nemotron-3 reasons in <reasoning> tags, ignores enable_thinking, and
+exceeds 8k tokens on trivial problems without emitting <final_code>. gpt-oss-120b
+and DeepSeek-V3.1 emit clean output out of the box; gpt-oss-120b is the closer
+capability match to U.
 
 Run from the repo root: python experiments/open_models/make_open_configs.py
 """
@@ -30,7 +37,7 @@ CONFIGS = REPO_ROOT / "src/lasr_labs_2025_control_project/configs"
 MODEL_MAP = {
     "openai/gpt-4.1-2025-04-14": "tinker/Qwen/Qwen3-30B-A3B-Instruct-2507",  # U
     "openai/gpt-4o-mini": "tinker/Qwen/Qwen3-8B",  # T (weak, same Qwen3 series)
-    "google/gemini-2.5-flash": "tinker/meta-llama/Llama-3.2-3B",  # H (different lineage)
+    "google/gemini-2.5-flash": "tinker/openai/gpt-oss-120b",  # H (different lineage, ~U cap.)
 }
 
 skipped, written = [], []

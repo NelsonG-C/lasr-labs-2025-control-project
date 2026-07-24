@@ -56,14 +56,24 @@ configs (skipping the 12 `openai/ft:...` SFT configs, which are OpenAI-specific)
 |------|-------|-----------|
 | **U** untrusted generator + monitor | `tinker/Qwen/Qwen3-30B-A3B-Instruct-2507` | ~GPT-4.1-level, non-thinking instruct |
 | **T** trusted monitor + paraphraser | `tinker/Qwen/Qwen3-8B` | Deliberately weak, same Qwen3 series |
-| **H** honeypot generator | `tinker/meta-llama/Llama-3.2-3B` | Different lineage; generation-only |
+| **H** honeypot generator | `tinker/openai/gpt-oss-120b` | Different lineage, ~U capability; generation-only |
 
-All three are verified available via `get_server_capabilities()` on our account.
-Caveats to revisit before the real run:
-- The account's live Tinker catalogue is Qwen-dominant; `Llama-3.2-3B` is the
-  only non-Qwen instruct model currently available, so H is smaller than U. A
-  stronger, distinct-lineage H (e.g. a Llama-70B or gpt-oss) would be preferable
-  if/when available — check `get_server_capabilities()`.
+All three are verified available via `get_server_capabilities()` on our account
+and confirmed to generate/monitor in the required formats.
+
+Reasoning-model note (why H is gpt-oss, not Nemotron): the honeypot generator
+must emit `<final_code>`/`<secret_input>` within a reasonable token budget.
+`nvidia/NVIDIA-Nemotron-3-*` are heavy reasoners — they reason in `<reasoning>`
+tags, ignore `enable_thinking=False`, and exceed 8k output tokens on a trivial
+problem without ever emitting `<final_code>`, so they're unusable as generators.
+Tinker's sampling API has no `reasoning_effort` knob; reasoning is controlled
+only via the chat template (`enable_thinking=False`, which for Qwen/DeepSeek
+inserts the empty `<think></think>` block) — Nemotron honours neither reliably.
+`gpt-oss-120b` and `deepseek-ai/DeepSeek-V3.1` emit clean output out of the box;
+gpt-oss-120b is the closer capability match to U. The provider default
+`max_tokens` is 4096 so generators reach their closing tag.
+
+Caveat to revisit before the real run:
 - T (`Qwen3-8B`) is a smaller same-series model rather than a literal "previous
   series"; the capability gap to U is what matters for the trusted-weak role.
 

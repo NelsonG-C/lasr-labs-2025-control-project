@@ -46,6 +46,10 @@ if TYPE_CHECKING:  # avoid importing tinker at module load
 
 TINKER_PREFIX = "tinker/"
 
+# Default sampling cap when the caller doesn't set one (the generate pipeline
+# doesn't). Big enough that a generator reaches its closing </final_code> tag.
+_DEFAULT_MAX_TOKENS = 4096
+
 # Chat-template kwargs that disable chain-of-thought for hybrid-reasoning
 # families, so completions carry only the final answer (matches the behaviour
 # we rely on for clean answer extraction). Applied best-effort: templates that
@@ -185,7 +189,10 @@ class TinkerAPI(ModelAPI):
             self.base_model, _messages_to_dicts(input), add_generation_prompt=True
         )
         sampling_params = types.SamplingParams(
-            max_tokens=config.max_tokens or 2048,
+            # Generous default: the generate pipeline does not set max_tokens, and
+            # a short cap truncates generators mid-output (e.g. before the closing
+            # </final_code> tag).
+            max_tokens=config.max_tokens or _DEFAULT_MAX_TOKENS,
             temperature=1.0 if config.temperature is None else config.temperature,
             top_p=1.0 if config.top_p is None else config.top_p,
             top_k=-1 if config.top_k is None else config.top_k,
