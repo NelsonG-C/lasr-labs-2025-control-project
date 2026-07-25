@@ -82,8 +82,12 @@ before `<final_code>` and were silently truncated at the tinker provider's 4096
 default, producing empty solutions -- roughly two thirds of samples in a pilot,
 with the worst cases needing >8k tokens. The plumbing is `RunGenerator.max_tokens`
 in `utils/config_loader.py`. Monitor and transform configs are left alone: the
-collusion monitor is forced-decoding (it generates nothing) and the
-suspiciousness monitors emit a short `<score>`.
+collusion monitor is forced-decoding (it generates nothing), and while the
+suspiciousness monitors and LLM paraphraser do free-generate, they are only
+expected to emit a short `<score>` (or a paraphrase) and stay well inside the
+provider default. That is an expectation, not a guarantee -- a truncated
+suspiciousness completion yields a `None` score, so check the NaN rate on the
+first arm of a sweep.
 
 Full run order for a fresh open-weights run
 -------------------------------------------
@@ -668,14 +672,16 @@ BIGCODEBENCH = Setting(
 
 SPEC: dict[str, Setting] = {"apps": APPS, "bigcodebench": BIGCODEBENCH}
 
-#: the open tree is APPS-focused; bigcodebench_open is regenerable on request
 # Every generated tree is gitignored, so the DEFAULT invocation must be able to
-# rebuild all of them from scratch -- hence bigcodebench is included for the open
+# rebuild all of them from scratch -- hence bigcodebench is generated for the open
 # class too, even though the open-weights *runs* are APPS-focused.
-DEFAULT_SETTINGS = {
-    "closed": ("apps", "bigcodebench"),
-    "open": ("apps", "bigcodebench"),
-}
+DEFAULT_SETTINGS = ("apps", "bigcodebench")
+
+# Resolved SFT checkpoints live here when --checkpoints is not passed. This file
+# is the one piece of genuinely non-regenerable state in the scheme (the arm ->
+# tinker:// mapping), so keep it under version control: it sits under the
+# gitignored experiments/ tree, so it needs `git add -f`.
+DEFAULT_CHECKPOINTS_FILE = Path(__file__).resolve().parent / "ckpts.json"
 
 
 # ---------------------------------------------------------------------------
@@ -722,7 +728,8 @@ class ModelResolver:
 HEADER = """\
 # GENERATED FILE - do not hand-edit; your changes will be overwritten.
 # Source of truth: experiments/open_models/make_configs.py (declarative spec at module top).
-# Regenerate: python experiments/open_models/make_configs.py
+# Regenerate: python experiments/open_models/make_configs.py [--checkpoints ckpts.json]
+#   (SFT checkpoints are picked up automatically from experiments/open_models/ckpts.json)
 """
 
 
@@ -949,8 +956,18 @@ def generate_setting(
 
 
 def load_checkpoints(path: Path | None) -> dict[str, str]:
+    """Load arm -> tinker:// checkpoint paths.
+
+    With no --checkpoints, fall back to DEFAULT_CHECKPOINTS_FILE if it exists.
+    Without that fallback the bare regenerate command -- the one printed at the
+    top of every generated file -- would silently revert resolved SFT arms back
+    to PENDING placeholders, throwing away the record of which LoRA to use.
+    """
     if path is None:
-        return {}
+        if not DEFAULT_CHECKPOINTS_FILE.exists():
+            return {}
+        path = DEFAULT_CHECKPOINTS_FILE
+        print(f"using checkpoints from {path}")
     data = json.loads(path.read_text())
     if not isinstance(data, dict):
         raise SystemExit(
@@ -962,6 +979,9 @@ def load_checkpoints(path: Path | None) -> dict[str, str]:
             f"unknown SFT arm(s) in {path}: {unknown}\n"
             f"valid arms: {sorted(SFT_ARMS)}"
         )
+    bad = sorted(k for k, v in data.items() if not isinstance(v, str))
+    if bad:
+        raise SystemExit(f"{path}: checkpoint path must be a string for arm(s): {bad}")
     return data
 
 
@@ -1007,7 +1027,7 @@ def main() -> None:
 
     pending: set[str] = set()
     for model_class in args.model_class:
-        settings = args.settings or DEFAULT_SETTINGS[model_class]
+        settings = args.settings or DEFAULT_SETTINGS
         models = ModelResolver(model_class, checkpoints)
         for setting in settings:
             written, pruned = generate_setting(

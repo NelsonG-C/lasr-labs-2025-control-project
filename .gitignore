@@ -41,10 +41,14 @@ CLAUDE.md
 # .yaml trees are build artifacts. Regenerate all of them with:
 #   python experiments/open_models/make_configs.py
 # (add --checkpoints ckpts.json to bake Tinker LoRA paths into the open SFT arms)
-src/lasr_labs_2025_control_project/configs/apps/
-src/lasr_labs_2025_control_project/configs/bigcodebench/
-src/lasr_labs_2025_control_project/configs/apps_open/
-src/lasr_labs_2025_control_project/configs/bigcodebench_open/
-# ...except this hand-written helper, which the spec does not generate (it is
-# mirrored into the open tree from here, so it must stay checked in).
-!src/lasr_labs_2025_control_project/configs/bigcodebench/plot_everything.sh
+# Ignore the generated *artifacts* (the .yaml files), NOT the directories:
+# git cannot re-include a file whose parent directory is excluded, so a
+# `configs/bigcodebench/` rule would make the hand-written plot_everything.sh
+# below permanently un-addable once it is untracked.
+src/lasr_labs_2025_control_project/configs/apps/**/*.yaml
+src/lasr_labs_2025_control_project/configs/bigcodebench/**/*.yaml
+src/lasr_labs_2025_control_project/configs/apps_open/**/*.yaml
+src/lasr_labs_2025_control_project/configs/bigcodebench_open/**/*.yaml
+# plot_everything.sh is hand-written and stays checked in under bigcodebench/;
+# the copy mirrored into the open tree by the generator is an artifact.
+src/lasr_labs_2025_control_project/configs/bigcodebench_open/plot_everything.sh

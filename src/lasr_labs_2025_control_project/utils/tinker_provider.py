@@ -193,9 +193,10 @@ class TinkerAPI(ModelAPI):
             self.base_model, _messages_to_dicts(input), add_generation_prompt=True
         )
         sampling_params = types.SamplingParams(
-            # Generous default: the generate pipeline does not set max_tokens, and
-            # a short cap truncates generators mid-output (e.g. before the closing
-            # </final_code> tag).
+            # Generous default for callers that set no max_tokens (monitors, the
+            # paraphraser): a short cap truncates generators mid-output, e.g.
+            # before the closing </final_code> tag. Generator configs override
+            # this via RunGenerator.max_tokens.
             max_tokens=config.max_tokens or _DEFAULT_MAX_TOKENS,
             temperature=1.0 if config.temperature is None else config.temperature,
             top_p=1.0 if config.top_p is None else config.top_p,

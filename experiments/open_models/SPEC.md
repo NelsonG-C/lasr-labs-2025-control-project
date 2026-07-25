@@ -89,8 +89,14 @@ gpt-oss-120b is the closer capability match to U. The provider default
 their closing tag (~2/3 of samples in a pilot came back with no `<final_code>`;
 the worst cases needed >8k), so `make_configs.py` injects `max_tokens: 16384`
 into the `defaults:` of every *open* generator config (`--max-tokens` to change).
-Monitor and transform configs are left alone — the collusion monitor is
-forced-decoding and the suspiciousness monitors emit a short `<score>`.
+Monitor and transform configs are left alone. The collusion monitor is
+forced-decoding, so it cannot truncate. The suspiciousness monitors and the LLM
+paraphraser *do* free-generate and are therefore still capped at the provider
+default: they are only expected to emit a short `<score>` (or a paraphrase), and
+did so throughout the pilot, but this is an expectation rather than a guarantee.
+A truncated suspiciousness completion makes `parse_score` return `None`, which is
+indistinguishable from a refusal — so check the NaN-score rate on the first arm
+of a sweep before trusting a full run.
 
 U (Qwen3) and T (Qwen3.5) are different Qwen generations, so the trusted monitor
 is a distinct series from the untrusted model, and H (gpt-oss) is a distinct
