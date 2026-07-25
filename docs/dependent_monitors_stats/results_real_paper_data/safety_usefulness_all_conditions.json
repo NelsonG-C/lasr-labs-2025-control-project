@@ -295,7 +295,7 @@
         }
       ]
     },
-    "apps/additive/paraphrased_sft": {
+    "apps/causal/paraphrased_sft": {
       "label": "Additive SFT Summarised",
       "results": [
         {

@@ -1,4 +1,4 @@
-experiment_folder: experiments/apps/additive
+experiment_folder: experiments/apps/causal
 
 results_folder: results/paraphrased_sft/
 
@@ -31,7 +31,7 @@ defaults:
         transformed: true
 runs:
   attacks:
-    eval_path: ../causal/transforms/paraphrased/attack_transformed.eval
+    eval_path: transforms/paraphrased/attack_transformed.eval
     save_path: outputs/paraphrased_sft/attack_monitor_results.eval
     monitors:
       - untrusted_collusion_monitor
@@ -39,7 +39,7 @@ runs:
       - untrusted_backdoor_monitor
 
   honest:
-    eval_path: ../causal/transforms/paraphrased/honest_transformed.eval
+    eval_path: transforms/paraphrased/honest_transformed.eval
     save_path: outputs/paraphrased_sft/honest_monitor_results.eval
     monitors:
       - untrusted_collusion_monitor
@@ -47,7 +47,7 @@ runs:
       - untrusted_backdoor_monitor
 
   honeypots:
-    eval_path: ../causal/transforms/paraphrased/honeypots_transformed.eval
+    eval_path: transforms/paraphrased/honeypots_transformed.eval
     save_path: outputs/paraphrased_sft/honeypots_monitor_results.eval
     monitors:
       - untrusted_collusion_monitor
