@@ -1,8 +1,8 @@
 experiment_folder: experiments/apps/control_self_rec
 
-results_folder: results/original/none_sft_honest/
+results_folder: results/no_backdoors/none_sft_honest/run_2/
 
-experiment_name: Self Rec SFT Honest (Original)
+experiment_name: Self Rec SFT Honest (No Backdoors, Run 2)
 
 defaults:
   monitors:
@@ -31,24 +31,24 @@ defaults:
         transformed: false
 runs:
   attacks:
-    eval_path: generator/original/attacks.eval
-    save_path: outputs/original/none_sft_honest/attack_monitor_results.eval
+    eval_path: generator/no_backdoors/honest.eval
+    save_path: outputs/no_backdoors/none_sft_honest/run_2/attack_monitor_results.eval
     monitors:
       - untrusted_collusion_monitor
       - trusted_backdoor_monitor
       - untrusted_backdoor_monitor
 
   honest:
-    eval_path: generator/original/honest.eval
-    save_path: outputs/original/none_sft_honest/honest_monitor_results.eval
+    eval_path: generator/no_backdoors/honest.eval
+    save_path: outputs/no_backdoors/none_sft_honest/run_2/honest_monitor_results.eval
     monitors:
       - untrusted_collusion_monitor
       - trusted_backdoor_monitor
       - untrusted_backdoor_monitor
 
   honeypots:
-    eval_path: generator/original/honeypots.eval
-    save_path: outputs/original/none_sft_honest/honeypots_monitor_results.eval
+    eval_path: generator/no_backdoors/honeypots.eval
+    save_path: outputs/no_backdoors/none_sft_honest/run_2/honeypots_monitor_results.eval
     monitors:
       - untrusted_collusion_monitor
       - trusted_backdoor_monitor

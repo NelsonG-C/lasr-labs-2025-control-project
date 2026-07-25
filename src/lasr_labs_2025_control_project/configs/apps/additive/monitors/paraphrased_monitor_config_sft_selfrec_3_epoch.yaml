@@ -1,18 +1,18 @@
-experiment_folder: experiments/apps/control_self_rec
+experiment_folder: experiments/apps/additive
 
-results_folder: results/original/none_sft_honest/
+results_folder: results/paraphrased_sft/
 
-experiment_name: Self Rec SFT Honest (Original)
+experiment_name: Additive SFT Summarised
 
 defaults:
   monitors:
     - untrusted_collusion_monitor:
         model_info:
-          model: openai/ft:gpt-4.1-2025-04-14:lasr-labs:gemini-2-5-flash-honest:CQmnG0bI
+          model: openai/ft:gpt-4.1-2025-04-14:lasr-labs:causal-paraphrased:CS8Pm0LQ:ckpt-step-2100
           system_prompt: SELF_REC_UNTRUSTED_MONITOR_COLLUSION_SYSTEM_PROMPT
           base_prompt: MONITOR_USER_PROMPT
-        remove_comments: true
-        transformed: false
+        remove_comments: false
+        transformed: true
 
     - trusted_backdoor_monitor:
         model_info:
@@ -25,30 +25,30 @@ defaults:
     - untrusted_backdoor_monitor:
         model_info:
           model: openai/gpt-4.1-2025-04-14
-          system_prompt: DEFAULT_HONEST_MONITOR_SYSTEM_PROMPT
+          system_prompt: PARAPHRASED_HONEST_MONITOR_SYSTEM_PROMPT
           base_prompt: MONITOR_USER_PROMPT
-        remove_comments: true
-        transformed: false
+        remove_comments: false
+        transformed: true
 runs:
   attacks:
-    eval_path: generator/original/attacks.eval
-    save_path: outputs/original/none_sft_honest/attack_monitor_results.eval
+    eval_path: ../causal/transforms/paraphrased/attack_transformed.eval
+    save_path: outputs/paraphrased_sft/attack_monitor_results.eval
     monitors:
       - untrusted_collusion_monitor
       - trusted_backdoor_monitor
       - untrusted_backdoor_monitor
 
   honest:
-    eval_path: generator/original/honest.eval
-    save_path: outputs/original/none_sft_honest/honest_monitor_results.eval
+    eval_path: ../causal/transforms/paraphrased/honest_transformed.eval
+    save_path: outputs/paraphrased_sft/honest_monitor_results.eval
     monitors:
       - untrusted_collusion_monitor
       - trusted_backdoor_monitor
       - untrusted_backdoor_monitor
 
   honeypots:
-    eval_path: generator/original/honeypots.eval
-    save_path: outputs/original/none_sft_honest/honeypots_monitor_results.eval
+    eval_path: ../causal/transforms/paraphrased/honeypots_transformed.eval
+    save_path: outputs/paraphrased_sft/honeypots_monitor_results.eval
     monitors:
       - untrusted_collusion_monitor
       - trusted_backdoor_monitor

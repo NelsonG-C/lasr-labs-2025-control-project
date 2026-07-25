@@ -30,5 +30,6 @@ results/
 
 notebooks/
 experiments/
+experiments
 mlruns/
 cache/
