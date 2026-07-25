@@ -70,6 +70,37 @@ class TestAttackSide:
                 )
                 assert fn(float(t), f)[0] == pytest.approx(expected, abs=1e-9)
 
+    def test_reduces_to_product_when_independent(self, boolean_dfs):
+        """With the honest and TM columns shuffled on attacks (genuinely
+        independent classifiers), the joint pass surface must reduce to the
+        product P(tm < c) * (1 - P(coll < t AND honest)) within sampling
+        noise. The (coll, honest) pair stays intact — both belong to the UM;
+        only cross-monitor independence is under test."""
+        attacks_df, honeypots_df, benign_df = boolean_dfs
+        shuffled = attacks_df.copy()
+        rng = np.random.default_rng(7)
+        perm = rng.permutation(len(shuffled))
+        shuffled["trusted_suspiciousness_score"] = shuffled[
+            "trusted_suspiciousness_score"
+        ].to_numpy()[perm]
+        fn, _ = build_roc_function(
+            attacks_df=shuffled, honeypots_df=honeypots_df, benign_df=benign_df
+        )
+        tm_a = shuffled["trusted_suspiciousness_score"].to_numpy()
+        coll_a = shuffled["untrusted_collusion_score"].to_numpy()
+        honest_a = shuffled["untrusted_honest_score"].to_numpy()
+        tm_b = benign_df["trusted_suspiciousness_score"].to_numpy()
+        tol = 4.0 * 0.5 / np.sqrt(len(shuffled))  # 4 sigma of a Bernoulli mean
+        worst = max(
+            abs(
+                fn(float(t), float(np.mean(tm_b >= c)))[0]
+                - np.mean(tm_a < c) * (1 - np.mean((coll_a < t) & honest_a))
+            )
+            for t in np.unique(coll_a)
+            for c in np.unique(tm_b)
+        )
+        assert worst < tol, f"joint deviates from product by {worst:.4f} > {tol:.4f}"
+
     def test_honest_tm_error_correlation_changes_coverage(self, boolean_dfs):
         """Shuffling the honest column (breaking its correlation with the TM
         score) must change the pass surface: correlated misses overlap, so
@@ -112,6 +143,26 @@ class TestBenignSide:
         # Limits: eps_extra(0) = honest FPR, eps_extra(1) = 0.
         assert float(extra(0.0)) == pytest.approx(meta["untrusted_honest_fpr"])
         assert float(extra(1.0)) == pytest.approx(0.0)
+
+    def test_extra_fpr_reduces_to_product_when_independent(self):
+        """With benign_error_corr=0 (genuinely independent honest flags and
+        TM scores on benign), eps_extra(f) must reduce to the independence
+        product FPR_h * P(tm < c(f)) within sampling noise."""
+        attacks_df, honeypots_df, benign_df = make_boolean_score_dataframes(
+            rho_attack=0.5, benign_error_corr=0.0, seed=11
+        )
+        _, meta = build_roc_function(
+            attacks_df=attacks_df, honeypots_df=honeypots_df, benign_df=benign_df
+        )
+        extra = meta["untrusted_honest_extra_fpr_fn"]
+        fpr_h = meta["untrusted_honest_fpr"]
+        tm_b = benign_df["trusted_suspiciousness_score"].to_numpy()
+        tol = 4.0 * 0.5 / np.sqrt(len(tm_b))
+        worst = max(
+            abs(float(extra(float(np.mean(tm_b >= c)))) - fpr_h * np.mean(tm_b < c))
+            for c in np.unique(tm_b)
+        )
+        assert worst < tol, f"eps_extra deviates from product by {worst:.4f}"
 
     def test_positive_correlation_reduces_extra_audit_demand(self):
         """Honest false flags that land on tasks the TM already audits cost
