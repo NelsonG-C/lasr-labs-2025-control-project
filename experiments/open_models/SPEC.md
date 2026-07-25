@@ -84,19 +84,34 @@ Tinker's sampling API has no `reasoning_effort` knob; reasoning is controlled
 only via the chat template (`enable_thinking=False`, which for Qwen/DeepSeek
 inserts the empty `<think></think>` block) — Nemotron honours neither reliably.
 `gpt-oss-120b` and `deepseek-ai/DeepSeek-V3.1` emit clean output out of the box;
-gpt-oss-120b is the closer capability match to U. The provider default
-`max_tokens` is only 4096, which silently truncates the open generators before
-their closing tag (~2/3 of samples in a pilot came back with no `<final_code>`;
-the worst cases needed >8k), so `make_configs.py` injects `max_tokens: 16384`
-into the `defaults:` of every *open* generator config (`--max-tokens` to change).
-Monitor and transform configs are left alone. The collusion monitor is
-forced-decoding, so it cannot truncate. The suspiciousness monitors and the LLM
-paraphraser *do* free-generate and are therefore still capped at the provider
-default: they are only expected to emit a short `<score>` (or a paraphrase), and
-did so throughout the pilot, but this is an expectation rather than a guarantee.
-A truncated suspiciousness completion makes `parse_score` return `None`, which is
-indistinguishable from a refusal — so check the NaN-score rate on the first arm
-of a sweep before trusting a full run.
+gpt-oss-120b is the closer capability match to U. A 4096-token cap silently
+truncates the open generators before their closing tag (~2/3 of samples in a
+pilot came back with no `<final_code>`; the worst cases needed >8k), so
+`make_configs.py` injects `max_tokens: 16384` into the `defaults:` of every
+*open* generator config (`--max-tokens` to change).
+
+Monitor and transform configs set no budget of their own. The collusion monitor
+is forced-decoding, so it cannot truncate, but the suspiciousness monitors and
+the LLM paraphraser *do* free-generate and therefore run at the provider default
+— which is why `_DEFAULT_MAX_TOKENS` is now **16384, not 4096**.
+
+That was measured, not assumed. At 4096 the APPS open run produced NaN
+`trusted_suspiciousness_score` on up to 11% of an arm. Re-calling T
+(Qwen3.5-4B) 24 times on one monitor prompt reproduced it at 25%, and *all six*
+failures had `stop_reason=max_tokens` while none of the 18 successes did — i.e.
+100% of the NaN scores were truncation, not refusal or a format mismatch. After
+the bump: 0/24. The same cap also truncated 2 paraphrases, which are stored
+verbatim as the transformed solution and would have reached the paraphrased
+monitors looking intact.
+
+The equivalent closed-model logs on HuggingFace show 0% NaN on all three
+monitors, so this is purely an open-model artefact: a small chatty model emits
+far more reasoning before its `<score>` tag than GPT-4o-mini does. Left unfixed
+it would have biased the trusted-monitor ROC against exactly the verbose,
+ambiguous cases, and made the open and closed numbers non-comparable.
+
+Both failure modes are silent, so keep checking on the first arm of any sweep:
+NaN-score rate for monitors, `stop_reason=max_tokens` rate for transforms.
 
 Two caveats on the exact-logprob path, both currently latent:
 

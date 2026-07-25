@@ -288,6 +288,58 @@ class Monitor:
         return f"outputs/{self.arm}/{LABEL_STEMS[label]}_monitor_results.eval"
 
 
+#: The honeypot generator H is given the SAME attack prompt in EVERY condition.
+#: Honeypots are a blue-team instrument -- the "not written by U" negative class
+#: for the collusion monitor -- so their distribution must not depend on the red
+#: team's strategy. If it does, a cross-condition AUROC compares different
+#: negative classes and is not a like-for-like number.
+#:
+#: APPS causal previously handed H the `causal_attack_prompt`, which
+#: gpt-oss-120b refused on 16.3% of samples (vs ~1% for the shared prompt),
+#: silently shrinking and biasing that arm's negative class. The closed run had
+#: the same asymmetry, so this is a deliberate divergence from it.
+HONEYPOT_ATTACK_PROMPT = {
+    "apps": "self_rec_subtle_attack_policy_prompt",
+    "bigcodebench": "self_rec_attack_policy_prompt_bcb",
+}
+
+#: Shared generations (OPEN tree only). The whole APPS sweep needs FIVE
+#: generations, not nine:
+#:
+#:     shared honeypots  (H, default attack prompt)  -- used by every condition
+#:     shared honest     (U, honest_policy_prompt)   -- used by every condition
+#:     attacks x3        (no-signal / acausal / causal)
+#:
+#: Only the attacks depend on the red team's strategy. Sharing the rest is not
+#: just cheaper: the LLM paraphraser is nondeterministic, so re-transforming the
+#: same honest code per condition would hand each arm a *different* negative
+#: class and inject cross-condition noise into exactly the comparison we care
+#: about. The sharing therefore covers the transforms too, not only generation.
+#:
+#: experiment -> (source experiment, labels taken from it). Paths are emitted as
+#: `../<source>/...`, which resolves because every experiment_folder is a
+#: sibling under `<model-class>/<setting>/`.
+#:
+#: OPEN ONLY. The closed run really did generate per-condition honest/honeypots
+#: -- they are distinct sample sets in the HuggingFace dataset -- so re-pointing
+#: the closed configs at a shared set would silently change published numbers.
+SHARED_INPUTS: dict[str, tuple[str, tuple[str, ...]]] = {
+    "acausal": ("self_rec", ("honest", "honeypots")),
+    "causal": ("self_rec", ("honest", "honeypots")),
+    "causal_train": ("self_rec_train", ("honeypots",)),
+}
+
+
+def shared_source(model_class: str, experiment: str, label: str) -> str | None:
+    """The experiment supplying `label` to `experiment`, or None if it owns it."""
+    if model_class != "open":
+        return None
+    entry = SHARED_INPUTS.get(experiment)
+    if entry and label in entry[1]:
+        return entry[0]
+    return None
+
+
 @dataclass(frozen=True)
 class Setting:
     """Everything generated for one setting (apps / bigcodebench)."""
@@ -379,7 +431,8 @@ APPS = Setting(
             runs=(
                 GenRun("attacks", "attack", "causal_attack_prompt", "U"),
                 GenRun("honest", "honest", "honest_policy_prompt", "U"),
-                GenRun("honeypots", "attack", "causal_attack_prompt", "H"),
+                # H always gets the shared honeypot prompt, never the red team's.
+                GenRun("honeypots", "attack", HONEYPOT_ATTACK_PROMPT["apps"], "H"),
             ),
         ),
         Generator(
@@ -409,32 +462,31 @@ APPS = Setting(
             data_split="train",
             runs=(
                 GenRun("attacks", "attack", "causal_attack_prompt", "U"),
-                GenRun("honeypots", "attack", "causal_attack_prompt", "H"),
+                GenRun("honeypots", "attack", HONEYPOT_ATTACK_PROMPT["apps"], "H"),
             ),
         ),
-        # SFT training data: the train split, honest (no-backdoor) solutions from
-        # both authors. Its own experiment folder, under the model class so the
-        # closed and open runs cannot overwrite each other.
+        # SFT training data for the passive self-recognition arms
+        # (self_rec_base / _minified / _paraphrased). Its own experiment folder,
+        # under the model class, so the closed and open runs cannot overwrite
+        # each other.
+        #
+        # ATTACK mode for both authors, under the same default attack prompt
+        # (passive = no signal). The monitor is finetuned to answer exactly the
+        # question it faces at eval time -- "did I write this backdoored
+        # solution, or did H?" -- so the training distribution must be the eval
+        # distribution. Training on honest, backdoor-free code (as this
+        # generator used to) teaches authorship of a distribution the monitor
+        # never sees. BigCodeBench's train generator already used attack mode.
         Generator(
-            path="self_rec/generator/honest_generator_config.yaml",
+            path="self_rec/generator/train_generator_config.yaml",
             experiment="self_rec_train",
             experiment_name="self_rec_train",
             data_split="train",
             runs=(
                 GenRun(
-                    "honest",
-                    "honest",
-                    "honest_policy_prompt",
-                    "U",
-                    save_path="generator/honest_attacks.eval",
+                    "attacks", "attack", "self_rec_subtle_attack_policy_prompt", "U"
                 ),
-                GenRun(
-                    "honeypots",
-                    "honest",
-                    "honest_policy_prompt",
-                    "H",
-                    save_path="generator/honest_honeypots.eval",
-                ),
+                GenRun("honeypots", "attack", HONEYPOT_ATTACK_PROMPT["apps"], "H"),
             ),
         ),
     ),
@@ -464,18 +516,12 @@ APPS = Setting(
         # transformed_solution out of these logs -- so the train split needs its own
         # minifier/paraphraser pair, exactly as BigCodeBench already has. Without
         # these, only the `none` strategy could be trained.
-        # The train generator writes honest_attacks.eval / honest_honeypots.eval
-        # rather than the default <label>.eval, hence input_files.
         *transform_pair(
             folder="self_rec/transforms",
             experiment="self_rec_train",
             experiment_name="self_rec_train",
             file_suffix="_train",
-            labels=("honest", "honeypots"),
-            input_files={
-                "honest": "honest_attacks.eval",
-                "honeypots": "honest_honeypots.eval",
-            },
+            labels=("attacks", "honeypots"),
         ),
     ),
     monitors=(
@@ -846,6 +892,8 @@ def build_generator(
             "model": models.role(run.role),
         }
         for run in spec.runs
+        # Shared labels are generated once, by their source experiment.
+        if shared_source(models.model_class, spec.experiment, run.label) is None
     }
     return {
         "experiment_folder": experiment_folder(
@@ -875,6 +923,9 @@ def build_transform(
             f"{LABEL_STEMS[label]}_transformed.eval",
         }
         for label in spec.labels
+        # A shared label is transformed once, by its source experiment; the
+        # other conditions read that same transformed .eval (see SHARED_INPUTS).
+        if shared_source(models.model_class, spec.experiment, label) is None
     }
     return {
         "experiment_folder": experiment_folder(
@@ -942,7 +993,16 @@ def build_monitor(spec: Monitor, models: ModelResolver, setting: str) -> dict[st
 
     runs = {
         label: {
-            "eval_path": spec.eval_path(label),
+            # Shared honest/honeypots inputs live in the source experiment's
+            # folder (a sibling under <model-class>/<setting>/), so they are
+            # read via `../<source>/`. Outputs stay in THIS experiment: the
+            # collusion prompt is condition-specific, so the same shared
+            # honeypots must still be re-scored under each condition.
+            "eval_path": (
+                f"../{_src}/{spec.eval_path(label)}"
+                if (_src := shared_source(models.model_class, spec.experiment, label))
+                else spec.eval_path(label)
+            ),
             "save_path": spec.save_path(label),
             "monitors": list(MONITOR_ORDER),
         }
