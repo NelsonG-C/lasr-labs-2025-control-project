@@ -95,7 +95,7 @@ Compares Base Model (backdoors), Control SFT (randomized labels, no backdoors), 
 uv run src/lasr_labs_2025_control_project/scripts/plot_data.py \
   --config \
     src/lasr_labs_2025_control_project/configs/apps/self_rec/monitors/base/base_monitor_config.yaml \
-    src/lasr_labs_2025_control_project/configs/apps/self_rec/monitors/sft/base_monitor_config_randomised.yaml \
+    src/lasr_labs_2025_control_project/configs/apps/control_self_rec/monitors/no_backdoors/base_monitor_config_randomised.yaml \
     src/lasr_labs_2025_control_project/configs/apps/self_rec/monitors/sft/base_monitor_config.yaml \
   --grouped-path no_mitigation \
   --disable-trusted-monitor True
@@ -106,7 +106,7 @@ uv run src/lasr_labs_2025_control_project/scripts/plot_data.py \
 uv run src/lasr_labs_2025_control_project/scripts/plot_data.py \
   --config \
     src/lasr_labs_2025_control_project/configs/apps/self_rec/monitors/base/base_monitor_config.yaml \
-    src/lasr_labs_2025_control_project/configs/apps/self_rec/monitors/sft/base_monitor_config_randomised.yaml \
+    src/lasr_labs_2025_control_project/configs/apps/control_self_rec/monitors/no_backdoors/base_monitor_config_randomised.yaml \
     src/lasr_labs_2025_control_project/configs/apps/self_rec/monitors/sft/base_monitor_config.yaml \
   --grouped-path no_mitigation
 ```

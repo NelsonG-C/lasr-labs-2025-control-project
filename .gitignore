@@ -32,3 +32,23 @@ notebooks/
 experiments/
 mlruns/
 cache/
+
+# Agent instructions (local, not part of the project)
+CLAUDE.md
+
+# Generated config trees (closed-model and open-model/Tinker). The declarative
+# spec in experiments/open_models/make_configs.py is the source of truth; these
+# .yaml trees are build artifacts. Regenerate all of them with:
+#   python experiments/open_models/make_configs.py
+# (add --checkpoints ckpts.json to bake Tinker LoRA paths into the open SFT arms)
+# Ignore the generated *artifacts* (the .yaml files), NOT the directories:
+# git cannot re-include a file whose parent directory is excluded, so a
+# `configs/bigcodebench/` rule would make the hand-written plot_everything.sh
+# below permanently un-addable once it is untracked.
+src/lasr_labs_2025_control_project/configs/apps/**/*.yaml
+src/lasr_labs_2025_control_project/configs/bigcodebench/**/*.yaml
+src/lasr_labs_2025_control_project/configs/apps_open/**/*.yaml
+src/lasr_labs_2025_control_project/configs/bigcodebench_open/**/*.yaml
+# plot_everything.sh is hand-written and stays checked in under bigcodebench/;
+# the copy mirrored into the open tree by the generator is an artifact.
+src/lasr_labs_2025_control_project/configs/bigcodebench_open/plot_everything.sh

@@ -24,6 +24,10 @@ dependencies = [
     "inspect-ai==0.3.133",
     "pyyaml>=6.0.1",
     "dacite>=1.9.2",
+    # Tinker open-weights backend (utils/tinker_provider.py). jinja2 is needed by
+    # transformers' apply_chat_template, which the provider uses for tokenisation.
+    "tinker>=0.23.3",
+    "jinja2>=3.1.0",
 ]
 
 [dependency-groups]
@@ -35,6 +39,7 @@ dev = [
     "openai>=1.104.1",
     "google-genai>=1.28.0",
     "pytest>=8.3.3",
+    "pytest-asyncio>=0.24.0",
     "pandas-stubs>=2.3.2.250827",
 ]
 
@@ -49,6 +54,7 @@ reportAssignmentType = "warning"
 reportReturnType = "warning"
 
 [tool.pytest.ini_options]
+asyncio_mode = "auto"
 markers = [
     "mc: marks tests that rely on Monte Carlo simulation",
     "slow: marks tests as relatively slow",
