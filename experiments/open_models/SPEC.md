@@ -48,9 +48,13 @@ declared as dependencies.
 
 ## Model roles
 
-Set in `experiments/open_models/make_open_configs.py`, which generates
-`configs/apps_open/` and `configs/bigcodebench_open/` from the closed-model
-configs (skipping the 12 `openai/ft:...` SFT configs, which are OpenAI-specific).
+Set in `experiments/open_models/make_configs.py`, which holds one declarative
+spec and emits **both** config trees from it: `configs/{apps,bigcodebench}/`
+(closed models) and `configs/{apps,bigcodebench}_open/` (Tinker). The SFT arms
+are generated too: each closed `openai/ft:...` finetune maps to a logical arm
+name whose open-weights counterpart is a Tinker LoRA of U, supplied with
+`--checkpoints ckpts.json` (arm -> `tinker://…` path). Arms without a checkpoint
+are emitted as `tinker/tinker://PENDING__<arm>` and listed on stdout.
 
 | Role | Model | Rationale |
 |------|-------|-----------|
@@ -81,7 +85,12 @@ only via the chat template (`enable_thinking=False`, which for Qwen/DeepSeek
 inserts the empty `<think></think>` block) — Nemotron honours neither reliably.
 `gpt-oss-120b` and `deepseek-ai/DeepSeek-V3.1` emit clean output out of the box;
 gpt-oss-120b is the closer capability match to U. The provider default
-`max_tokens` is 4096 so generators reach their closing tag.
+`max_tokens` is only 4096, which silently truncates the open generators before
+their closing tag (~2/3 of samples in a pilot came back with no `<final_code>`;
+the worst cases needed >8k), so `make_configs.py` injects `max_tokens: 16384`
+into the `defaults:` of every *open* generator config (`--max-tokens` to change).
+Monitor and transform configs are left alone — the collusion monitor is
+forced-decoding and the suspiciousness monitors emit a short `<score>`.
 
 U (Qwen3) and T (Qwen3.5) are different Qwen generations, so the trusted monitor
 is a distinct series from the untrusted model, and H (gpt-oss) is a distinct
@@ -126,8 +135,10 @@ End-to-end SFT reproduction (all generation steps need Docker):
    label-ablation variants via `randomise_labels.py` / `permute_labels.py`).
 3. `python -m lasr_labs_2025_control_project.finetuning.tinker_lora_finetune
    --train-jsonl <…/train_messages.jsonl> --out-path-file ckpt.txt` → checkpoint.
-4. Put the checkpoint path in an `*_sft` monitor config's collusion monitor and
-   run `monitor_solutions_inspect.py` as in the prompted track.
+4. Collect the checkpoints into `ckpts.json` (`{"<arm>": "tinker://…", …}`) and
+   re-run `experiments/open_models/make_configs.py --model-class open
+   --checkpoints ckpts.json`, which bakes them into the `*_sft` monitor configs;
+   then run `monitor_solutions_inspect.py` as in the prompted track.
 
 Verified: the trainer runs on U live (forward_backward/optim_step reduce the
 loss, `save_weights_for_sampler` + sampling round-trip succeed); the data

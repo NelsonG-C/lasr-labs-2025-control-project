@@ -32,3 +32,19 @@ notebooks/
 experiments/
 mlruns/
 cache/
+
+# Agent instructions (local, not part of the project)
+CLAUDE.md
+
+# Generated config trees (closed-model and open-model/Tinker). The declarative
+# spec in experiments/open_models/make_configs.py is the source of truth; these
+# .yaml trees are build artifacts. Regenerate all of them with:
+#   python experiments/open_models/make_configs.py
+# (add --checkpoints ckpts.json to bake Tinker LoRA paths into the open SFT arms)
+src/lasr_labs_2025_control_project/configs/apps/
+src/lasr_labs_2025_control_project/configs/bigcodebench/
+src/lasr_labs_2025_control_project/configs/apps_open/
+src/lasr_labs_2025_control_project/configs/bigcodebench_open/
+# ...except this hand-written helper, which the spec does not generate (it is
+# mirrored into the open tree from here, so it must stay checked in).
+!src/lasr_labs_2025_control_project/configs/bigcodebench/plot_everything.sh
