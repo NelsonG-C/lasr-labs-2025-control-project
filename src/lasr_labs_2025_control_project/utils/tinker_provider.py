@@ -56,6 +56,10 @@ _DEFAULT_MAX_TOKENS = 4096
 # don't accept the kwarg are called without it.
 _NOTHINK_TEMPLATE_KWARGS = {"enable_thinking": False}
 
+# inspect's reasoning_effort vocabulary -> the values harmony templates (gpt-oss)
+# accept. inspect allows "minimal", harmony does not; "low" is the nearest.
+_HARMONY_REASONING_EFFORT = {"minimal": "low"}
+
 
 def strip_prefix(model_name: str) -> str:
     """Return the Tinker base-model id from a possibly-``tinker/``-prefixed name."""
@@ -125,16 +129,31 @@ def _apply_chat_template(
     messages: list[dict[str, str]],
     *,
     add_generation_prompt: bool,
+    reasoning_effort: str | None = None,
 ) -> list[int]:
-    """Tokenise chat messages, disabling thinking when the template supports it."""
+    """Tokenise chat messages, minimising thinking when the template supports it.
+
+    Two independent, best-effort levers (templates that ignore a kwarg simply
+    render as usual):
+      - `enable_thinking=False` for hybrid-reasoning families (Qwen/DeepSeek).
+      - `reasoning_effort` for harmony-style templates (gpt-oss), which default
+        to `Reasoning: medium` and ignore `enable_thinking` entirely. Tinker's
+        *sampling* API has no such knob, but the chat template does, and we are
+        the caller of the template.
+    """
     tok = _tokenizer(base_model)
+    kwargs = dict(_NOTHINK_TEMPLATE_KWARGS)
+    if reasoning_effort is not None:
+        kwargs["reasoning_effort"] = _HARMONY_REASONING_EFFORT.get(
+            reasoning_effort, reasoning_effort
+        )
     try:
         out = tok.apply_chat_template(
             messages,
             add_generation_prompt=add_generation_prompt,
             tokenize=True,
             return_dict=False,
-            **_NOTHINK_TEMPLATE_KWARGS,
+            **kwargs,
         )
     except TypeError:
         out = tok.apply_chat_template(
@@ -190,7 +209,10 @@ class TinkerAPI(ModelAPI):
         from tinker import types
 
         prompt_ids = _apply_chat_template(
-            self.base_model, _messages_to_dicts(input), add_generation_prompt=True
+            self.base_model,
+            _messages_to_dicts(input),
+            add_generation_prompt=True,
+            reasoning_effort=config.reasoning_effort,
         )
         sampling_params = types.SamplingParams(
             # Generous default for callers that set no max_tokens (monitors, the
@@ -212,7 +234,12 @@ class TinkerAPI(ModelAPI):
         )
         seq = resp.sequences[0]
         text = _tokenizer(self.base_model).decode(list(seq.tokens), skip_special_tokens=True)
-        stop_reason = "max_tokens" if str(seq.stop_reason).endswith("LENGTH") else "stop"
+        # tinker's StopReason is Literal["length", "stop"] (lowercase); compare
+        # case-insensitively or truncation is silently reported as a clean stop,
+        # which is exactly how the generator truncation went unnoticed in a pilot.
+        stop_reason = (
+            "max_tokens" if str(seq.stop_reason).lower().endswith("length") else "stop"
+        )
         return ModelOutput.from_content(
             model=self.model_name, content=text, stop_reason=stop_reason
         )

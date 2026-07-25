@@ -98,6 +98,21 @@ A truncated suspiciousness completion makes `parse_score` return `None`, which i
 indistinguishable from a refusal — so check the NaN-score rate on the first arm
 of a sweep before trusting a full run.
 
+Two caveats on the exact-logprob path, both currently latent:
+
+- The forced-decoding prefix is `apply_chat_template(add_generation_prompt=True)`
+  + `<answer>`, which assumes a ChatML-shaped generation prompt (correct for
+  Qwen). A harmony-style template (gpt-oss) ends the generation prompt before its
+  `<|channel|>final<|message|>` marker, so appending `<answer>` would yield a
+  malformed sequence and two *non-NaN but meaningless* logprobs. H is
+  generation-only today, so this does not bite -- but do not point the collusion
+  monitor at a gpt-oss checkpoint without fixing the scaffold first.
+- Collusion *accuracy* is not the same estimator across backends. On the OpenAI
+  path it scores the text the model actually generated; on the Tinker path the
+  completion is synthesised from `argmax(logP(YES), logP(NO))`, so the model can
+  never be scored as emitting anything else. The forced-decoding version is
+  arguably the better metric, but the two should not share a table without a note.
+
 U (Qwen3) and T (Qwen3.5) are different Qwen generations, so the trusted monitor
 is a distinct series from the untrusted model, and H (gpt-oss) is a distinct
 lineage from both.

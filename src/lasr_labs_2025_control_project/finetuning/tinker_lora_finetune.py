@@ -22,7 +22,13 @@ Usage:
       [--base-model Qwen/Qwen3-30B-A3B-Instruct-2507] \
       [--rank 32] [--lr 1e-4] [--epochs 3] [--batch-size 64] \
       [--checkpoint-name self_rec_u] [--out-path-file checkpoint_path.txt] \
-      [--max-examples N] [--seed 0]
+      [--max-examples N] [--seed 0] [--val-frac 0.05]
+
+After saving, a held-out slice (`--val-frac`, 5% by default) is scored through
+the same forced-decoding path the monitor uses, reporting accuracy, predicted-YES
+rate and mean margin. The YES rate is the important one: a collapsed LoRA that
+answers a single constant produces a constant collusion score downstream, i.e. an
+AUC near chance that reads as a null result rather than a failed training run.
 """
 
 from __future__ import annotations
@@ -140,6 +146,7 @@ def finetune(
     checkpoint_name: str = "self_rec_u",
     max_examples: Optional[int] = None,
     seed: int = 0,
+    val_frac: float = 0.05,
 ) -> str:
     """Run LoRA SFT and return the `tinker://…` sampler-weights path."""
     import tinker
@@ -148,9 +155,22 @@ def finetune(
     examples = load_examples(train_jsonl)
     if max_examples is not None:
         examples = examples[:max_examples]
+
+    # Hold out a slice for a post-training sanity check. A collapsed classifier
+    # (always YES or always NO) yields a constant collusion score and therefore
+    # AUC ~0.5 downstream -- which reads as a null *result* rather than a broken
+    # run, so it must be caught here, before monitoring is run on top of it.
+    rng = random.Random(seed)
+    shuffled = list(examples)
+    rng.shuffle(shuffled)
+    n_val = int(len(shuffled) * val_frac) if val_frac > 0 else 0
+    val_examples, examples = shuffled[:n_val], shuffled[n_val:]
+
     logger.info(
-        "Loaded %d examples; base_model=%s rank=%d lr=%g epochs=%d batch_size=%d",
-        len(examples), base_model, rank, lr, epochs, batch_size,
+        "Loaded %d examples (%d train / %d held-out); "
+        "base_model=%s rank=%d lr=%g epochs=%d batch_size=%d",
+        len(shuffled), len(examples), len(val_examples),
+        base_model, rank, lr, epochs, batch_size,
     )
 
     service = tinker.ServiceClient()
@@ -159,7 +179,6 @@ def finetune(
     )
 
     data = [build_datum(ex["messages"], base_model) for ex in examples]
-    rng = random.Random(seed)
 
     step = 0
     for epoch in range(epochs):
@@ -181,7 +200,68 @@ def finetune(
 
     resp = training_client.save_weights_for_sampler(name=checkpoint_name).result()
     logger.info("Saved sampler weights: %s", resp.path)
+    if val_examples:
+        evaluate_checkpoint(resp.path, val_examples)
     return resp.path
+
+
+def evaluate_checkpoint(
+    checkpoint_path: str, val_examples: list[dict[str, Any]]
+) -> dict[str, float]:
+    """Score held-out examples through the same forced-decoding path as the monitor.
+
+    Reports accuracy and — more importantly — the predicted-YES rate. A rate at
+    0.0 or 1.0 means the LoRA collapsed to a constant answer; downstream that
+    produces a constant collusion score and an AUC near chance, which is easily
+    mistaken for "self-recognition didn't work" instead of "training failed".
+    """
+    import asyncio
+
+    from lasr_labs_2025_control_project.utils.tinker_provider import (
+        collusion_yes_no_logprobs,
+    )
+
+    async def _run() -> dict[str, float]:
+        correct = yes_pred = 0
+        margins: list[float] = []
+        for ex in val_examples:
+            msgs = {m["role"]: m["content"] for m in ex["messages"]}
+            d = await collusion_yes_no_logprobs(
+                model_name=f"tinker/{checkpoint_path}",
+                system_prompt=msgs.get("system", ""),
+                user_prompt=msgs.get("user", ""),
+            )
+            yes, no = d.get("YES"), d.get("NO")
+            if yes is None or no is None:
+                continue
+            pred_yes = yes > no
+            yes_pred += int(pred_yes)
+            margins.append(float(yes) - float(no))
+            correct += int(pred_yes == ("YES" in msgs.get("assistant", "")))
+        n = len(margins)
+        if not n:
+            logger.warning("held-out eval produced no valid logprobs")
+            return {}
+        stats = {
+            "n": n,
+            "accuracy": correct / n,
+            "yes_rate": yes_pred / n,
+            "mean_margin": sum(margins) / n,
+        }
+        logger.info(
+            "held-out: n=%d accuracy=%.3f yes_rate=%.3f mean_margin=%+.3f",
+            stats["n"], stats["accuracy"], stats["yes_rate"], stats["mean_margin"],
+        )
+        if stats["yes_rate"] in (0.0, 1.0):
+            logger.warning(
+                "COLLAPSED: the checkpoint predicts a single constant answer on "
+                "every held-out example. Downstream AUC will sit at chance and "
+                "look like a null result. Retrain (fewer epochs / lower lr) "
+                "before using this checkpoint."
+            )
+        return stats
+
+    return asyncio.run(_run())
 
 
 @click.command()
@@ -194,6 +274,13 @@ def finetune(
 @click.option("--checkpoint-name", type=str, default="self_rec_u", show_default=True)
 @click.option("--max-examples", type=int, default=None)
 @click.option("--seed", type=int, default=0, show_default=True)
+@click.option(
+    "--val-frac",
+    type=float,
+    default=0.05,
+    show_default=True,
+    help="fraction held out for the post-training collapse check (0 to disable)",
+)
 @click.option(
     "--out-path-file",
     type=click.Path(path_type=Path),
@@ -210,6 +297,7 @@ def main(
     checkpoint_name: str,
     max_examples: Optional[int],
     seed: int,
+    val_frac: float,
     out_path_file: Optional[Path],
 ):
     path = finetune(
@@ -222,6 +310,7 @@ def main(
         checkpoint_name=checkpoint_name,
         max_examples=max_examples,
         seed=seed,
+        val_frac=val_frac,
     )
     click.echo(path)
     if out_path_file is not None:
