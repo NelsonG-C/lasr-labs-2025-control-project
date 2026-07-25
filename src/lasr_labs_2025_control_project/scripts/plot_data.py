@@ -100,7 +100,10 @@ def build_jsonl_dataframe_from_eval_log(eval_log_path: Path) -> pd.DataFrame:
         - collusion_monitor_user_prompt
     """
     log = read_eval_log(eval_log_path)
-    assert log.samples is not None, "No samples found in the eval log"
+    assert log.samples, (
+        f"No samples in eval log {eval_log_path} (status={log.status!r}) — "
+        "a cancelled/empty run would silently produce a degenerate ROC"
+    )
     final_samples = []
     for sample in log.samples:
         metadata = {**sample.metadata, **sample.store}
