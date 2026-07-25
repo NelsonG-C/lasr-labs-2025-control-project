@@ -148,11 +148,38 @@ analogue LoRA-finetunes U on Tinker:
   forced-decoding collusion monitor). In a config, set the collusion monitor
   model to `tinker/tinker://<run-id>/sampler_weights/<name>`.
 
+There are **three checkpoints per condition**, one per paraphrase strategy
+(`none` / `minified` / `paraphrased`), because the monitor is finetuned on the
+same representation it will be shown at eval time. That requires the *training*
+generations to be transformed too, so the spec emits train-side transform pairs
+(`*_config_train.yaml`) alongside the train generators:
+
+| Condition | Train generator | Mode | Labels |
+|---|---|---|---|
+| passive self-rec | `self_rec/generator/honest_generator_config.yaml` | honest | author: U=YES, H=NO |
+| causal/combined | `causal/generator/train_generator_config.yaml` | **attack**, `causal_attack_prompt` | author: U=YES, H=NO |
+
+The causal arm trains on *attack* generations while the passive arm trains on
+*honest* ones: passive self-recognition is stylistic authorship (backdoors would
+only confound it), whereas causal collusion is recognising the shared backdoor
+signal, which cannot be learned from backdoor-free code. Attack mode also matches
+the BigCodeBench train generator. (Recorded as a decision, not a certainty --
+the closed run's training data was never published, so this could not be
+confirmed against it; see below.)
+
+Note the APPS passive train generator writes `honest_attacks.eval` /
+`honest_honeypots.eval` rather than the default `<label>.eval`, so its transform
+pair needs `Transform.input_files` to point at the right inputs.
+
 End-to-end SFT reproduction (all generation steps need Docker):
 1. `generate_solutions_inspect.py` on the **train** split (`odd_train`) for U and
    the other author models → the separate training generations.
-2. `finetuning/binary_tuning/transform_logs_to_raw.sh` +
-   `transform_raw_to_prepared.sh` → `train_messages.jsonl` (reused unchanged;
+1b. `transform_solutions_inspect.py` on the `*_config_train.yaml` transform pair
+   → the minified / paraphrased training solutions. Skip this and only the
+   `none`-strategy checkpoint can be trained.
+2. `finetuning/binary_tuning/transform_logs_to_raw.sh` (with `--transformed` for
+   the minified/paraphrased arms) + `transform_raw_to_prepared.sh` →
+   `train_messages.jsonl` (reused unchanged;
    label-ablation variants via `randomise_labels.py` / `permute_labels.py`).
 3. `python -m lasr_labs_2025_control_project.finetuning.tinker_lora_finetune
    --train-jsonl <…/train_messages.jsonl> --out-path-file ckpt.txt` → checkpoint.
@@ -181,3 +208,33 @@ python -m lasr_labs_2025_control_project.scripts.monitor_solutions_inspect \
 
 Pilot with a small `limit` first, confirm YES/NO logprobs are non-NaN and the
 honest-vs-attack separation is sane, then launch the full sweep.
+
+### Operational notes from the APPS run
+
+**Put `TMPDIR` on a real disk.** inspect assembles the whole `.eval` zip in
+`tempfile.TemporaryFile()` (`log/_recorders/eval.py`) before writing it out. If
+`/tmp` is a RAM-backed tmpfs -- the default on many Linux boxes -- a
+1030-sample arm's ~100MB temp zip lands in RAM, and two concurrent arms
+exhausted a 15GB tmpfs and killed a run at 900/1030 with the *very*
+unhelpful `OSError: [Errno 122] Disk quota exceeded` (EDQUOT, not a Tinker
+quota). `experiments/open_models/runs/run_arm.sh` exports
+`TMPDIR=$HOME/.cache/inspect-tmp` and aborts up front if headroom is short.
+
+**Docker concurrency is not the bottleneck; don't over-tune it.** The APPS
+scorer gives each test a *10s wall-clock* timeout, so an oversubscribed host can
+turn correct code into `INCORRECT` and silently depress the main-task success
+rate. Measured by submitting the dataset's own reference solutions (ground truth
+"should pass") at `max_subprocesses` 4 / 16 / 48: **zero** timeouts at every
+level and byte-identical failing sample sets, with wall time flat above 16.
+Two structural reasons it is safe: the timeout clock starts *after* the
+subprocess semaphore is acquired, so queueing cannot manufacture timeouts; and
+`max_subprocesses` defaults to `os.cpu_count()` because the repo scripts call
+`eval()` from Python, where the `INSPECT_EVAL_MAX_*` envvars (CLI-only) do not
+apply. Throughput is bound by the Tinker API instead: 0.40 samples/s for one
+arm, 0.83 for two, 1.15 for three concurrent arms.
+
+**Attack yield is the real constraint.** `check_sample_is_valid` (applied by
+`eval_to_dataset` at the monitor stage) keeps attacks/honeypots only when *both*
+main and side task succeed, and honest when main succeeds. On open models that
+leaves ~9% of attacks: ~95 usable attack samples per 1030-sample condition.
+Budget statistical power accordingly.

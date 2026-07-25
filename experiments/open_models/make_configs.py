@@ -239,10 +239,20 @@ class Transform:
     experiment_name: str
     kind: str  # "minifier" | "llm"
     labels: tuple[str, ...] = ALL_LABELS
+    #: label -> generator filename, when the producing GenRun used a non-default
+    #: save_path. Mirrors Monitor.input_files. Needed for the APPS SFT train
+    #: generator, whose runs are labelled honest/honeypots but write
+    #: honest_attacks.eval / honest_honeypots.eval.
+    input_files: Mapping[str, str] | None = None
 
     @property
     def transform_dir(self) -> str:
         return TRANSFORM_DIRS[self.kind]
+
+    def eval_path(self, label: str) -> str:
+        if self.input_files and label in self.input_files:
+            return f"generator/{self.input_files[label]}"
+        return f"generator/{label}.eval"
 
 
 @dataclass(frozen=True)
@@ -328,6 +338,7 @@ def transform_pair(
     experiment_name: str,
     file_suffix: str = "",
     labels: tuple[str, ...] = ALL_LABELS,
+    input_files: Mapping[str, str] | None = None,
 ) -> list[Transform]:
     """The standard minifier + LLM-paraphraser transform pair."""
     return [
@@ -337,6 +348,7 @@ def transform_pair(
             experiment_name=experiment_name,
             kind=kind,
             labels=labels,
+            input_files=input_files,
         )
         for kind in ("minifier", "llm")
     ]
@@ -384,6 +396,22 @@ APPS = Setting(
                 ),
             ),
         ),
+        # SFT training data for the causal/combined arms (causal_base,
+        # causal_minified, causal_paraphrased). Attack mode under the causal attack
+        # prompt from both authors, labelled by author (U=YES / H=NO): causal
+        # collusion is about recognising the shared backdoor signal, so unlike the
+        # passive arm below the training solutions must actually contain backdoors.
+        # Attack mode also matches the BigCodeBench train generator.
+        Generator(
+            path="causal/generator/train_generator_config.yaml",
+            experiment="causal_train",
+            experiment_name="causal_train",
+            data_split="train",
+            runs=(
+                GenRun("attacks", "attack", "causal_attack_prompt", "U"),
+                GenRun("honeypots", "attack", "causal_attack_prompt", "H"),
+            ),
+        ),
         # SFT training data: the train split, honest (no-backdoor) solutions from
         # both authors. Its own experiment folder, under the model class so the
         # closed and open runs cannot overwrite each other.
@@ -417,10 +445,37 @@ APPS = Setting(
         *transform_pair(
             folder="causal/transforms", experiment="causal", experiment_name="causal"
         ),
+        # Causal SFT training-data transforms, for causal_minified / causal_paraphrased.
+        *transform_pair(
+            folder="causal/transforms",
+            experiment="causal_train",
+            experiment_name="causal_train",
+            file_suffix="_train",
+            labels=("attacks", "honeypots"),
+        ),
         *transform_pair(
             folder="self_rec/transforms",
             experiment="self_rec",
             experiment_name="self_rec",
+        ),
+        # SFT training-data transforms. The self_rec_minified / self_rec_paraphrased
+        # checkpoints must be trained on *transformed* training solutions --
+        # binary_tuning's `transform_logs_to_raw.sh --transformed` reads the
+        # transformed_solution out of these logs -- so the train split needs its own
+        # minifier/paraphraser pair, exactly as BigCodeBench already has. Without
+        # these, only the `none` strategy could be trained.
+        # The train generator writes honest_attacks.eval / honest_honeypots.eval
+        # rather than the default <label>.eval, hence input_files.
+        *transform_pair(
+            folder="self_rec/transforms",
+            experiment="self_rec_train",
+            experiment_name="self_rec_train",
+            file_suffix="_train",
+            labels=("honest", "honeypots"),
+            input_files={
+                "honest": "honest_attacks.eval",
+                "honeypots": "honest_honeypots.eval",
+            },
         ),
     ),
     monitors=(
@@ -815,7 +870,7 @@ def build_transform(
         }
     runs = {
         label: {
-            "eval_path": f"generator/{label}.eval",
+            "eval_path": spec.eval_path(label),
             "save_path": f"transforms/{spec.transform_dir}/"
             f"{LABEL_STEMS[label]}_transformed.eval",
         }
