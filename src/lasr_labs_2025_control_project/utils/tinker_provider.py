@@ -92,13 +92,17 @@ def _service() -> "ServiceClient":
 
 
 @lru_cache(maxsize=None)
-def _sampling_client(base_model: str) -> "SamplingClient":
-    return _service().create_sampling_client(base_model=base_model)
+def _sampling_client(model_ref: str) -> "SamplingClient":
+    # A `tinker://…` ref is a saved (e.g. LoRA-finetuned) checkpoint, loaded via
+    # model_path; anything else is a base model name.
+    if model_ref.startswith("tinker://"):
+        return _service().create_sampling_client(model_path=model_ref)
+    return _service().create_sampling_client(base_model=model_ref)
 
 
 @lru_cache(maxsize=None)
-def _tokenizer(base_model: str):
-    return _sampling_client(base_model).get_tokenizer()
+def _tokenizer(model_ref: str):
+    return _sampling_client(model_ref).get_tokenizer()
 
 
 def _normalize_ids(out: Any) -> list[int]:

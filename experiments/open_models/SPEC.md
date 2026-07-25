@@ -100,6 +100,40 @@ lineage from both.
 All pass live against `Qwen/Qwen3-8B`. Run: `pytest` (offline only:
 `pytest -m 'not slow'`).
 
+## SFT track: finetuned collusion monitor on open models
+
+The original headline experiments finetune **U** (self-recognition SFT) and use
+the resulting checkpoint as the untrusted collusion monitor. The open-weights
+analogue LoRA-finetunes U on Tinker:
+
+- **`finetuning/tinker_lora_finetune.py`** — LoRA-finetunes U (default
+  `Qwen/Qwen3-30B-A3B-Instruct-2507`; **U, not the small T**) from the prepared
+  chat JSONL that `finetuning/binary_tuning` already emits. It masks the loss to
+  the assistant answer tokens (prompt not trained), tokenises exactly as
+  inference does (`tinker_provider`, thinking disabled), then
+  `save_weights_for_sampler()` and prints the `tinker://…` checkpoint path.
+- **Provider checkpoint support** — `tinker_provider._sampling_client` routes a
+  `tinker://…` ref through `create_sampling_client(model_path=…)`, so a finetuned
+  checkpoint works everywhere a base model does (generation, and the
+  forced-decoding collusion monitor). In a config, set the collusion monitor
+  model to `tinker/tinker://<run-id>/sampler_weights/<name>`.
+
+End-to-end SFT reproduction (all generation steps need Docker):
+1. `generate_solutions_inspect.py` on the **train** split (`odd_train`) for U and
+   the other author models → the separate training generations.
+2. `finetuning/binary_tuning/transform_logs_to_raw.sh` +
+   `transform_raw_to_prepared.sh` → `train_messages.jsonl` (reused unchanged;
+   label-ablation variants via `randomise_labels.py` / `permute_labels.py`).
+3. `python -m lasr_labs_2025_control_project.finetuning.tinker_lora_finetune
+   --train-jsonl <…/train_messages.jsonl> --out-path-file ckpt.txt` → checkpoint.
+4. Put the checkpoint path in an `*_sft` monitor config's collusion monitor and
+   run `monitor_solutions_inspect.py` as in the prompted track.
+
+Verified: the trainer runs on U live (forward_backward/optim_step reduce the
+loss, `save_weights_for_sampler` + sampling round-trip succeed); the data
+adapter (shift + answer-only mask) and checkpoint routing are unit-tested. Not
+yet run on real training data (needs the Docker generations from step 1).
+
 ## Running (not done here — needs Docker)
 
 The APPS/BigCodeBench scorers execute generated code in a Docker sandbox

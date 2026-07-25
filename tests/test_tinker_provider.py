@@ -63,6 +63,28 @@ def test_service_client_requires_key(monkeypatch):
         tp._service()
 
 
+def test_sampling_client_routes_checkpoint_vs_base(monkeypatch):
+    """Base names go via base_model; tinker:// checkpoints via model_path."""
+    calls = []
+
+    class FakeService:
+        def create_sampling_client(self, model_path=None, base_model=None):
+            calls.append(("path", model_path) if model_path else ("base", base_model))
+            return object()
+
+    monkeypatch.setattr(tp, "_service", lambda: FakeService())
+    tp._sampling_client.cache_clear()
+    try:
+        tp._sampling_client("Qwen/Qwen3-8B")
+        tp._sampling_client("tinker://run-id/sampler_weights/self_rec_u")
+    finally:
+        tp._sampling_client.cache_clear()
+    assert calls == [
+        ("base", "Qwen/Qwen3-8B"),
+        ("path", "tinker://run-id/sampler_weights/self_rec_u"),
+    ]
+
+
 # --------------------------------------------------------------------------- #
 # Forced-decoding collusion logprobs (stubbed clients)
 # --------------------------------------------------------------------------- #
