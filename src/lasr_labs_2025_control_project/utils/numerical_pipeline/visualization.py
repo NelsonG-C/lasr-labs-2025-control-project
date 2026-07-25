@@ -687,7 +687,7 @@ def plot_roc_curves(
         fpr_vals = fpr_vals[sort_idx]
         tpr_vals = np.clip(tpr_vals[sort_idx], 0.0, 1.0)
 
-        auc_val = float(np.trapz(tpr_vals, fpr_vals))
+        auc_val = float(np.trapezoid(tpr_vals, fpr_vals))
         display_label = f"{label} (AUC: {auc_val:.3f})"
 
         label_to_display[label] = display_label
