@@ -1,6 +1,6 @@
 experiment_folder: experiments/apps/additive
 
-results_folder: results/paraphrased_base_selfrec/
+results_folder: results/paraphrased_sft/
 
 experiment_name: Additive SFT Summarised
 
@@ -32,7 +32,7 @@ defaults:
 runs:
   attacks:
     eval_path: transforms/causal/paraphrased/attack_transformed.eval
-    save_path: outputs/causal_para_train_causal_para_eval/run 1/attack_monitor_results.eval
+    save_path: outputs/paraphrased_sft/attack_monitor_results.eval
     monitors:
       - untrusted_collusion_monitor
       - trusted_backdoor_monitor
@@ -40,7 +40,7 @@ runs:
 
   honest:
     eval_path: transforms/causal/paraphrased/honest_transformed.eval
-    save_path: outputs/causal_para_train_causal_para_eval/run 1/honest_monitor_results.eval
+    save_path: outputs/paraphrased_sft/honest_monitor_results.eval
     monitors:
       - untrusted_collusion_monitor
       - trusted_backdoor_monitor
@@ -48,7 +48,7 @@ runs:
 
   honeypots:
     eval_path: transforms/causal/paraphrased/honeypots_transformed.eval
-    save_path: outputs/causal_para_train_causal_para_eval/run 1/honeypots_monitor_results.eval
+    save_path: outputs/paraphrased_sft/honeypots_monitor_results.eval
     monitors:
       - untrusted_collusion_monitor
       - trusted_backdoor_monitor
