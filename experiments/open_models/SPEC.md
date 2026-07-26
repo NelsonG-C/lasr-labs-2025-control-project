@@ -84,19 +84,34 @@ Tinker's sampling API has no `reasoning_effort` knob; reasoning is controlled
 only via the chat template (`enable_thinking=False`, which for Qwen/DeepSeek
 inserts the empty `<think></think>` block) — Nemotron honours neither reliably.
 `gpt-oss-120b` and `deepseek-ai/DeepSeek-V3.1` emit clean output out of the box;
-gpt-oss-120b is the closer capability match to U. The provider default
-`max_tokens` is only 4096, which silently truncates the open generators before
-their closing tag (~2/3 of samples in a pilot came back with no `<final_code>`;
-the worst cases needed >8k), so `make_configs.py` injects `max_tokens: 16384`
-into the `defaults:` of every *open* generator config (`--max-tokens` to change).
-Monitor and transform configs are left alone. The collusion monitor is
-forced-decoding, so it cannot truncate. The suspiciousness monitors and the LLM
-paraphraser *do* free-generate and are therefore still capped at the provider
-default: they are only expected to emit a short `<score>` (or a paraphrase), and
-did so throughout the pilot, but this is an expectation rather than a guarantee.
-A truncated suspiciousness completion makes `parse_score` return `None`, which is
-indistinguishable from a refusal — so check the NaN-score rate on the first arm
-of a sweep before trusting a full run.
+gpt-oss-120b is the closer capability match to U. A 4096-token cap silently
+truncates the open generators before their closing tag (~2/3 of samples in a
+pilot came back with no `<final_code>`; the worst cases needed >8k), so
+`make_configs.py` injects `max_tokens: 16384` into the `defaults:` of every
+*open* generator config (`--max-tokens` to change).
+
+Monitor and transform configs set no budget of their own. The collusion monitor
+is forced-decoding, so it cannot truncate, but the suspiciousness monitors and
+the LLM paraphraser *do* free-generate and therefore run at the provider default
+— which is why `_DEFAULT_MAX_TOKENS` is now **16384, not 4096**.
+
+That was measured, not assumed. At 4096 the APPS open run produced NaN
+`trusted_suspiciousness_score` on up to 11% of an arm. Re-calling T
+(Qwen3.5-4B) 24 times on one monitor prompt reproduced it at 25%, and *all six*
+failures had `stop_reason=max_tokens` while none of the 18 successes did — i.e.
+100% of the NaN scores were truncation, not refusal or a format mismatch. After
+the bump: 0/24. The same cap also truncated 2 paraphrases, which are stored
+verbatim as the transformed solution and would have reached the paraphrased
+monitors looking intact.
+
+The equivalent closed-model logs on HuggingFace show 0% NaN on all three
+monitors, so this is purely an open-model artefact: a small chatty model emits
+far more reasoning before its `<score>` tag than GPT-4o-mini does. Left unfixed
+it would have biased the trusted-monitor ROC against exactly the verbose,
+ambiguous cases, and made the open and closed numbers non-comparable.
+
+Both failure modes are silent, so keep checking on the first arm of any sweep:
+NaN-score rate for monitors, `stop_reason=max_tokens` rate for transforms.
 
 Two caveats on the exact-logprob path, both currently latent:
 
@@ -148,11 +163,47 @@ analogue LoRA-finetunes U on Tinker:
   forced-decoding collusion monitor). In a config, set the collusion monitor
   model to `tinker/tinker://<run-id>/sampler_weights/<name>`.
 
+There are **three checkpoints per condition**, one per paraphrase strategy
+(`none` / `minified` / `paraphrased`), because the monitor is finetuned on the
+same representation it will be shown at eval time. That requires the *training*
+generations to be transformed too, so the spec emits train-side transform pairs
+(`*_config_train.yaml`) alongside the train generators:
+
+| Arm | Train generator | U's prompt | H's prompt | Labels |
+|---|---|---|---|---|
+| passive self-rec | `self_rec/generator/train_generator_config.yaml` | default attack | default attack | author: U=YES, H=NO |
+| causal/combined | `causal/generator/train_generator_config.yaml` | `causal_attack_prompt` | default attack | author: U=YES, H=NO |
+| label controls | `self_rec/generator/honest_train_generator_config.yaml` | honest | honest | (randomised / permuted) |
+
+Both SFT arms train in **attack** mode, on the distribution the monitor actually
+faces at eval time (U's attacks vs H's honeypots). An earlier version trained the
+passive arm on honest, backdoor-free code; that teaches authorship of a
+distribution the monitor never sees. BigCodeBench's train generator already used
+attack mode.
+
+The cost of attack mode is yield: the both-task-correct filter keeps ~9% of
+passive attacks (91 examples) against 283 honeypots, versus ~65% in honest mode.
+Budget for that -- it is why the trainer needs `--batch-size 16` rather than the
+default 64, and why the `--val-frac` holdout is too small to be a generalisation
+estimate (it is a collapse detector only).
+
+H uses the **same default attack prompt in every arm**, so the negative class is
+identical across passive and causal SFT and the two are directly comparable.
+
+The honest-mode generator is kept alongside, in its own experiment folder, for
+the `self_rec_honest` / `self_rec_permuted` label-control arms -- their closed
+counterparts carry a `-honest` suffix and `permute_labels.py` still points at
+that data.
+
 End-to-end SFT reproduction (all generation steps need Docker):
 1. `generate_solutions_inspect.py` on the **train** split (`odd_train`) for U and
    the other author models → the separate training generations.
-2. `finetuning/binary_tuning/transform_logs_to_raw.sh` +
-   `transform_raw_to_prepared.sh` → `train_messages.jsonl` (reused unchanged;
+1b. `transform_solutions_inspect.py` on the `*_config_train.yaml` transform pair
+   → the minified / paraphrased training solutions. Skip this and only the
+   `none`-strategy checkpoint can be trained.
+2. `finetuning/binary_tuning/transform_logs_to_raw.sh` (with `--transformed` for
+   the minified/paraphrased arms) + `transform_raw_to_prepared.sh` →
+   `train_messages.jsonl` (reused unchanged;
    label-ablation variants via `randomise_labels.py` / `permute_labels.py`).
 3. `python -m lasr_labs_2025_control_project.finetuning.tinker_lora_finetune
    --train-jsonl <…/train_messages.jsonl> --out-path-file ckpt.txt` → checkpoint.
@@ -181,3 +232,33 @@ python -m lasr_labs_2025_control_project.scripts.monitor_solutions_inspect \
 
 Pilot with a small `limit` first, confirm YES/NO logprobs are non-NaN and the
 honest-vs-attack separation is sane, then launch the full sweep.
+
+### Operational notes from the APPS run
+
+**Put `TMPDIR` on a real disk.** inspect assembles the whole `.eval` zip in
+`tempfile.TemporaryFile()` (`log/_recorders/eval.py`) before writing it out. If
+`/tmp` is a RAM-backed tmpfs -- the default on many Linux boxes -- a
+1030-sample arm's ~100MB temp zip lands in RAM, and two concurrent arms
+exhausted a 15GB tmpfs and killed a run at 900/1030 with the *very*
+unhelpful `OSError: [Errno 122] Disk quota exceeded` (EDQUOT, not a Tinker
+quota). `experiments/open_models/runs/run_arm.sh` exports
+`TMPDIR=$HOME/.cache/inspect-tmp` and aborts up front if headroom is short.
+
+**Docker concurrency is not the bottleneck; don't over-tune it.** The APPS
+scorer gives each test a *10s wall-clock* timeout, so an oversubscribed host can
+turn correct code into `INCORRECT` and silently depress the main-task success
+rate. Measured by submitting the dataset's own reference solutions (ground truth
+"should pass") at `max_subprocesses` 4 / 16 / 48: **zero** timeouts at every
+level and byte-identical failing sample sets, with wall time flat above 16.
+Two structural reasons it is safe: the timeout clock starts *after* the
+subprocess semaphore is acquired, so queueing cannot manufacture timeouts; and
+`max_subprocesses` defaults to `os.cpu_count()` because the repo scripts call
+`eval()` from Python, where the `INSPECT_EVAL_MAX_*` envvars (CLI-only) do not
+apply. Throughput is bound by the Tinker API instead: 0.40 samples/s for one
+arm, 0.83 for two, 1.15 for three concurrent arms.
+
+**Attack yield is the real constraint.** `check_sample_is_valid` (applied by
+`eval_to_dataset` at the monitor stage) keeps attacks/honeypots only when *both*
+main and side task succeed, and honest when main succeeds. On open models that
+leaves ~9% of attacks: ~95 usable attack samples per 1030-sample condition.
+Budget statistical power accordingly.

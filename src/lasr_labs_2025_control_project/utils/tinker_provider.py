@@ -46,9 +46,22 @@ if TYPE_CHECKING:  # avoid importing tinker at module load
 
 TINKER_PREFIX = "tinker/"
 
-# Default sampling cap when the caller doesn't set one (the generate pipeline
-# doesn't). Big enough that a generator reaches its closing </final_code> tag.
-_DEFAULT_MAX_TOKENS = 4096
+# Default sampling cap when the caller doesn't set one. This governs every
+# free-generating call that passes no max_tokens: the <score> suspiciousness
+# monitors and the LLM paraphraser. (Generator configs set their own budget.)
+#
+# It must be generous, because truncation here is *silent*: a cut-off monitor
+# completion has no closing </score>, so parse_score returns None -> NaN, which
+# is indistinguishable from a refusal; and a cut-off paraphrase is stored
+# verbatim as the transformed solution and fed to every downstream monitor.
+#
+# Measured on the APPS open run at the previous value of 4096: 24 repeat calls
+# to T (Qwen3.5-4B) on one monitor prompt gave 6 parse failures, *all six* with
+# stop_reason=max_tokens and none of the 18 successes truncated -- i.e. 100% of
+# NaN scores were truncation, up to 11% of samples on an arm. The closed-model
+# run has 0% NaN on the same monitors, so this is an open-model artefact: small
+# chatty models emit far more reasoning before the tag than GPT-4o-mini does.
+_DEFAULT_MAX_TOKENS = 16384
 
 # Chat-template kwargs that disable chain-of-thought for hybrid-reasoning
 # families, so completions carry only the final answer (matches the behaviour

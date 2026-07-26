@@ -300,6 +300,13 @@ def main(
     val_frac: float,
     out_path_file: Optional[Path],
 ):
+    # Same convention as the generate/monitor entrypoints: TINKER_API_KEY lives
+    # in a gitignored .env. Without this the trainer dies immediately with
+    # "The api_key client option must be set ...".
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
     path = finetune(
         train_jsonl=train_jsonl,
         base_model=base_model,

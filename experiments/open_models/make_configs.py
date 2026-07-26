@@ -12,7 +12,9 @@ spec instead.
 A config is fully determined by a handful of axes:
 
 * **generator** -- which policy prompt each of the attacks/honest/honeypots runs
-  uses, and which model role produces it.
+  uses, and which model role produces it. In the OPEN tree only, honest and
+  honeypots are generated once and shared across conditions (`SHARED_INPUTS`):
+  five generations, not nine.
 * **transform** -- minifier or LLM-paraphraser over the generator's `.eval`s.
 * **monitor** -- the cross product of
   - *condition* (`acausal` / `causal` / `self_rec`) -> the untrusted collusion
@@ -81,21 +83,31 @@ Every open generator config gets `max_tokens: 16384` in its `defaults:` block
 before `<final_code>` and were silently truncated at the tinker provider's 4096
 default, producing empty solutions -- roughly two thirds of samples in a pilot,
 with the worst cases needing >8k tokens. The plumbing is `RunGenerator.max_tokens`
-in `utils/config_loader.py`. Monitor and transform configs are left alone: the
-collusion monitor is forced-decoding (it generates nothing), and while the
-suspiciousness monitors and LLM paraphraser do free-generate, they are only
-expected to emit a short `<score>` (or a paraphrase) and stay well inside the
-provider default. That is an expectation, not a guarantee -- a truncated
-suspiciousness completion yields a `None` score, so check the NaN rate on the
-first arm of a sweep.
+in `utils/config_loader.py`. Monitor and transform configs set no budget of
+their own, so they take the tinker provider default -- which is why that default
+is now 16384 rather than 4096. At 4096 up to 11% of an arm's
+`trusted_suspiciousness_score` came back NaN, and every one of those was
+`stop_reason=max_tokens`, not a refusal: a small chatty model emits far more
+reasoning before its `<score>` tag than GPT-4o-mini does. The same cap silently
+truncated paraphrases, which are stored verbatim as the transformed solution.
+Both failures are silent, so still check the NaN rate (monitors) and the
+max_tokens rate (transforms) on the first arm of a sweep.
 
 Full run order for a fresh open-weights run
 -------------------------------------------
 1. `python experiments/open_models/make_configs.py --model-class open`
-2. `scripts/generate_solutions_inspect.py --config .../apps_open/self_rec/generator/honest_generator_config.yaml`
-   (the **train** split -- the SFT training generations)
-3. `finetuning/binary_tuning/transform_logs_to_raw.sh` -> `transform_raw_to_prepared.sh`,
-   per SFT arm (label ablations via `randomise_labels.py` / `permute_labels.py`)
+2. `scripts/generate_solutions_inspect.py` on the **train** split, for the SFT
+   training generations: `.../self_rec/generator/train_generator_config.yaml`
+   (attack mode -- the distribution the monitor faces at eval), plus
+   `.../self_rec/generator/honest_train_generator_config.yaml` if you need the
+   honest-label control arms. Then `transform_solutions_inspect.py` on the
+   matching `*_config_train.yaml` pairs, so the minified/paraphrased arms train
+   on the representation they will be shown.
+3. `finetuning/binary_tuning/transform_logs_to_raw.sh` (add `--transformed` for
+   the minified/paraphrased arms) -> `transform_raw_to_prepared.sh`, per SFT arm.
+   Pass `--target-model` explicitly: it defaults to an unrelated model, and a
+   mismatch silently labels every example NO.
+   (label ablations via `randomise_labels.py` / `permute_labels.py`)
 4. `finetuning/tinker_lora_finetune.py --train-jsonl ...` per arm -> a `tinker://` path each
 5. re-run this script with `--checkpoints ckpts.json` to bake the paths in
 6. `generate_solutions_inspect.py` on the **test** split -> `transform_solutions_inspect.py`
@@ -244,6 +256,9 @@ class Transform:
     def transform_dir(self) -> str:
         return TRANSFORM_DIRS[self.kind]
 
+    def eval_path(self, label: str) -> str:
+        return f"generator/{label}.eval"
+
 
 @dataclass(frozen=True)
 class Monitor:
@@ -276,6 +291,63 @@ class Monitor:
 
     def save_path(self, label: str) -> str:
         return f"outputs/{self.arm}/{LABEL_STEMS[label]}_monitor_results.eval"
+
+
+#: The honeypot generator H is given the SAME attack prompt in EVERY condition.
+#: Honeypots are a blue-team instrument -- the "not written by U" negative class
+#: for the collusion monitor -- so their distribution must not depend on the red
+#: team's strategy. If it does, a cross-condition AUROC compares different
+#: negative classes and is not a like-for-like number.
+#:
+#: APPS causal previously handed H the `causal_attack_prompt`, which
+#: gpt-oss-120b refused on 16.3% of samples (vs ~1% for the shared prompt),
+#: silently shrinking and biasing that arm's negative class. The closed run had
+#: the same asymmetry, so this is a deliberate divergence from it.
+HONEYPOT_ATTACK_PROMPT = {
+    "apps": "self_rec_subtle_attack_policy_prompt",
+    "bigcodebench": "self_rec_attack_policy_prompt_bcb",
+}
+
+#: Shared generations (OPEN tree only). The whole APPS sweep needs FIVE
+#: generations, not nine:
+#:
+#:     shared honeypots  (H, default attack prompt)  -- used by every condition
+#:     shared honest     (U, honest_policy_prompt)   -- used by every condition
+#:     attacks x3        (no-signal / acausal / causal)
+#:
+#: Only the attacks depend on the red team's strategy. Sharing the rest is not
+#: just cheaper: the LLM paraphraser is nondeterministic, so re-transforming the
+#: same honest code per condition would hand each arm a *different* negative
+#: class and inject cross-condition noise into exactly the comparison we care
+#: about. The sharing therefore covers the transforms too, not only generation.
+#:
+#: experiment -> (source experiment, labels taken from it). Paths are emitted as
+#: `../<source>/...`, which resolves because every experiment_folder is a
+#: sibling under `<model-class>/<setting>/`.
+#:
+#: OPEN ONLY. The closed run really did generate per-condition honest/honeypots
+#: -- they are distinct sample sets in the HuggingFace dataset -- so re-pointing
+#: the closed configs at a shared set would silently change published numbers.
+#:
+#: Keyed on experiment NAME, so this also applies to `bigcodebench_open`, whose
+#: acausal/causal experiments share the same names. That is intentional and
+#: benign there: those generators never produced honest/honeypots, so their
+#: monitors previously referenced .eval files nothing wrote.
+SHARED_INPUTS: dict[str, tuple[str, tuple[str, ...]]] = {
+    "acausal": ("self_rec", ("honest", "honeypots")),
+    "causal": ("self_rec", ("honest", "honeypots")),
+    "causal_train": ("self_rec_train", ("honeypots",)),
+}
+
+
+def shared_source(model_class: str, experiment: str, label: str) -> str | None:
+    """The experiment supplying `label` to `experiment`, or None if it owns it."""
+    if model_class != "open":
+        return None
+    entry = SHARED_INPUTS.get(experiment)
+    if entry and label in entry[1]:
+        return entry[0]
+    return None
 
 
 @dataclass(frozen=True)
@@ -367,7 +439,8 @@ APPS = Setting(
             runs=(
                 GenRun("attacks", "attack", "causal_attack_prompt", "U"),
                 GenRun("honest", "honest", "honest_policy_prompt", "U"),
-                GenRun("honeypots", "attack", "causal_attack_prompt", "H"),
+                # H always gets the shared honeypot prompt, never the red team's.
+                GenRun("honeypots", "attack", HONEYPOT_ATTACK_PROMPT["apps"], "H"),
             ),
         ),
         Generator(
@@ -384,13 +457,60 @@ APPS = Setting(
                 ),
             ),
         ),
-        # SFT training data: the train split, honest (no-backdoor) solutions from
-        # both authors. Its own experiment folder, under the model class so the
-        # closed and open runs cannot overwrite each other.
+        # SFT training data for the causal/combined arms (causal_base,
+        # causal_minified, causal_paraphrased). Attack mode under the causal attack
+        # prompt from both authors, labelled by author (U=YES / H=NO): causal
+        # collusion is about recognising the shared backdoor signal, so unlike the
+        # passive arm below the training solutions must actually contain backdoors.
+        # Attack mode also matches the BigCodeBench train generator.
         Generator(
-            path="self_rec/generator/honest_generator_config.yaml",
+            path="causal/generator/train_generator_config.yaml",
+            experiment="causal_train",
+            experiment_name="causal_train",
+            data_split="train",
+            runs=(
+                GenRun("attacks", "attack", "causal_attack_prompt", "U"),
+                GenRun("honeypots", "attack", HONEYPOT_ATTACK_PROMPT["apps"], "H"),
+            ),
+        ),
+        # SFT training data for the passive self-recognition arms
+        # (self_rec_base / _minified / _paraphrased). Its own experiment folder,
+        # under the model class, so the closed and open runs cannot overwrite
+        # each other.
+        #
+        # ATTACK mode for both authors, under the same default attack prompt
+        # (passive = no signal). The monitor is finetuned to answer exactly the
+        # question it faces at eval time -- "did I write this backdoored
+        # solution, or did H?" -- so the training distribution must be the eval
+        # distribution. Training on honest, backdoor-free code (as this
+        # generator used to) teaches authorship of a distribution the monitor
+        # never sees. BigCodeBench's train generator already used attack mode.
+        Generator(
+            path="self_rec/generator/train_generator_config.yaml",
             experiment="self_rec_train",
             experiment_name="self_rec_train",
+            data_split="train",
+            runs=(
+                GenRun(
+                    "attacks", "attack", "self_rec_subtle_attack_policy_prompt", "U"
+                ),
+                GenRun("honeypots", "attack", HONEYPOT_ATTACK_PROMPT["apps"], "H"),
+            ),
+        ),
+        # Honest-mode training data, kept ALONGSIDE the attack-mode generator
+        # above (not replaced by it). This is what the label-control arms
+        # `self_rec_honest` and `self_rec_permuted` were trained on -- the
+        # closed-model finetunes carry a `-honest` suffix, and
+        # `finetuning/scripts/permute_labels.py` still points at a
+        # `...-honest/prepared/train/train_messages.jsonl`. Dropping it would
+        # leave those two arms (4 live control_self_rec monitor configs) with no
+        # config in either tree that reproduces their training data.
+        # Its own experiment folder so it cannot collide with the attack-mode
+        # generations, which now own `self_rec_train/generator/{attacks,honeypots}.eval`.
+        Generator(
+            path="self_rec/generator/honest_train_generator_config.yaml",
+            experiment="self_rec_honest_train",
+            experiment_name="self_rec_honest_train",
             data_split="train",
             runs=(
                 GenRun(
@@ -417,10 +537,31 @@ APPS = Setting(
         *transform_pair(
             folder="causal/transforms", experiment="causal", experiment_name="causal"
         ),
+        # Causal SFT training-data transforms, for causal_minified / causal_paraphrased.
+        *transform_pair(
+            folder="causal/transforms",
+            experiment="causal_train",
+            experiment_name="causal_train",
+            file_suffix="_train",
+            labels=("attacks", "honeypots"),
+        ),
         *transform_pair(
             folder="self_rec/transforms",
             experiment="self_rec",
             experiment_name="self_rec",
+        ),
+        # SFT training-data transforms. The self_rec_minified / self_rec_paraphrased
+        # checkpoints must be trained on *transformed* training solutions --
+        # binary_tuning's `transform_logs_to_raw.sh --transformed` reads the
+        # transformed_solution out of these logs -- so the train split needs its own
+        # minifier/paraphraser pair, exactly as BigCodeBench already has. Without
+        # these, only the `none` strategy could be trained.
+        *transform_pair(
+            folder="self_rec/transforms",
+            experiment="self_rec_train",
+            experiment_name="self_rec_train",
+            file_suffix="_train",
+            labels=("attacks", "honeypots"),
         ),
     ),
     monitors=(
@@ -593,7 +734,7 @@ BIGCODEBENCH = Setting(
             runs=(
                 GenRun("attacks", "attack", "self_rec_attack_policy_prompt_bcb", "U"),
                 GenRun("honest", "honest", "honest_policy_prompt_bcb", "U"),
-                GenRun("honeypots", "attack", "self_rec_attack_policy_prompt_bcb", "H"),
+                GenRun("honeypots", "attack", HONEYPOT_ATTACK_PROMPT["bigcodebench"], "H"),
             ),
         ),
         # SFT training data (train split). `dataset:` rather than `dataset_type:`
@@ -606,7 +747,7 @@ BIGCODEBENCH = Setting(
             extra_defaults={"dataset": "bigcodebench"},
             runs=(
                 GenRun("attacks", "attack", "self_rec_attack_policy_prompt_bcb", "U"),
-                GenRun("honeypots", "attack", "self_rec_attack_policy_prompt_bcb", "H"),
+                GenRun("honeypots", "attack", HONEYPOT_ATTACK_PROMPT["bigcodebench"], "H"),
             ),
         ),
     ),
@@ -791,6 +932,8 @@ def build_generator(
             "model": models.role(run.role),
         }
         for run in spec.runs
+        # Shared labels are generated once, by their source experiment.
+        if shared_source(models.model_class, spec.experiment, run.label) is None
     }
     return {
         "experiment_folder": experiment_folder(
@@ -815,11 +958,14 @@ def build_transform(
         }
     runs = {
         label: {
-            "eval_path": f"generator/{label}.eval",
+            "eval_path": spec.eval_path(label),
             "save_path": f"transforms/{spec.transform_dir}/"
             f"{LABEL_STEMS[label]}_transformed.eval",
         }
         for label in spec.labels
+        # A shared label is transformed once, by its source experiment; the
+        # other conditions read that same transformed .eval (see SHARED_INPUTS).
+        if shared_source(models.model_class, spec.experiment, label) is None
     }
     return {
         "experiment_folder": experiment_folder(
@@ -887,7 +1033,16 @@ def build_monitor(spec: Monitor, models: ModelResolver, setting: str) -> dict[st
 
     runs = {
         label: {
-            "eval_path": spec.eval_path(label),
+            # Shared honest/honeypots inputs live in the source experiment's
+            # folder (a sibling under <model-class>/<setting>/), so they are
+            # read via `../<source>/`. Outputs stay in THIS experiment: the
+            # collusion prompt is condition-specific, so the same shared
+            # honeypots must still be re-scored under each condition.
+            "eval_path": (
+                f"../{_src}/{spec.eval_path(label)}"
+                if (_src := shared_source(models.model_class, spec.experiment, label))
+                else spec.eval_path(label)
+            ),
             "save_path": spec.save_path(label),
             "monitors": list(MONITOR_ORDER),
         }
