@@ -36,10 +36,11 @@ def runnable_configs(tree: str) -> list[tuple[str, Path]]:
         save_paths = [run.save_path for run in normalized.runs]
         if len(save_paths) != 3 or not all(Path(p).exists() for p in save_paths):
             continue
-        # experiments/<model-class>/<setting>/<experiment>/outputs/<arm>/...
+        # experiments/<model-class>/<setting>/<experiment>/outputs/<arm...>/
+        # (<arm...> may be nested, e.g. control_self_rec's original/none_sft_honest)
         rel = Path(save_paths[0]).relative_to("experiments")
-        arm = Path(save_paths[0]).parent.name
-        key = f"{'/'.join(rel.parts[1:3])}/{arm}"
+        arm_parts = rel.parts[rel.parts.index("outputs") + 1 : -1]
+        key = f"{'/'.join(rel.parts[1:3])}/{'/'.join(arm_parts)}"
         found.append((key, cfg_path))
     return found
 
