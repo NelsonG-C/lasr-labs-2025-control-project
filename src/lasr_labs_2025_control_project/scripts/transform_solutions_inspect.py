@@ -34,6 +34,7 @@ from lasr_labs_2025_control_project.scripts.helpers.metadata_dataclasses import 
     TransformInfo,
     TransformType,
 )
+from lasr_labs_2025_control_project.utils import tinker_provider  # noqa: F401  (registers tinker/ provider)
 from lasr_labs_2025_control_project.utils.config_loader import (
     TransformRunConfig,
     load_and_normalize_config,

@@ -41,6 +41,7 @@ from lasr_labs_2025_control_project.scripts.helpers.metadata_dataclasses import 
     ModelInfo,
 )
 from lasr_labs_2025_control_project.settings.setting import AppsSetting
+from lasr_labs_2025_control_project.utils import tinker_provider  # noqa: F401  (registers tinker/ provider)
 from lasr_labs_2025_control_project.utils.config_loader import (
     DatasetType,
     DataSplit,
@@ -363,6 +364,7 @@ def main(
             max_sandboxes=48,
             reasoning_tokens=0,
             reasoning_effort="minimal",  # openai models
+            max_tokens=run.generator.max_tokens,  # None -> provider default
             limit=run.limit,
         )
         run.save_path.parent.mkdir(parents=True, exist_ok=True)

@@ -61,12 +61,17 @@ class RunGenerator:
         eval_mode: The evaluation mode.
         data_split: The data split.
         dataset_type: The dataset type (apps or bigcodebench).
+        max_tokens: Optional per-run completion token cap passed to inspect's
+            eval(); None keeps the provider default (open models that reason at
+            length before emitting <final_code> need more than the tinker
+            provider's 4096 default).
     """
 
     model_info: ModelInfo
     eval_mode: EvalMode
     data_split: DataSplit
     dataset_type: DatasetType = DatasetType.APPS
+    max_tokens: Optional[int] = None
 
 
 class RunLabel(StrEnum):
@@ -464,6 +469,9 @@ def _build_generator_run_config(
     model = get_cfg_value("model", run_cfg, defaults)
     system_prompt_name = get_cfg_value("system_prompt", run_cfg, defaults)
 
+    # Optional completion-token cap (per-run override, then defaults, else None)
+    max_tokens = run_cfg.get("max_tokens", defaults.get("max_tokens"))
+
     # Build the RunGenerator dataclass
     run_generator = from_dict(
         RunGenerator,
@@ -476,6 +484,7 @@ def _build_generator_run_config(
             "eval_mode": eval_mode,
             "data_split": data_split,
             "dataset_type": dataset_type,
+            "max_tokens": max_tokens,
         },
     )
 
