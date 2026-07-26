@@ -169,22 +169,31 @@ same representation it will be shown at eval time. That requires the *training*
 generations to be transformed too, so the spec emits train-side transform pairs
 (`*_config_train.yaml`) alongside the train generators:
 
-| Condition | Train generator | Mode | Labels |
-|---|---|---|---|
-| passive self-rec | `self_rec/generator/honest_generator_config.yaml` | honest | author: U=YES, H=NO |
-| causal/combined | `causal/generator/train_generator_config.yaml` | **attack**, `causal_attack_prompt` | author: U=YES, H=NO |
+| Arm | Train generator | U's prompt | H's prompt | Labels |
+|---|---|---|---|---|
+| passive self-rec | `self_rec/generator/train_generator_config.yaml` | default attack | default attack | author: U=YES, H=NO |
+| causal/combined | `causal/generator/train_generator_config.yaml` | `causal_attack_prompt` | default attack | author: U=YES, H=NO |
+| label controls | `self_rec/generator/honest_train_generator_config.yaml` | honest | honest | (randomised / permuted) |
 
-The causal arm trains on *attack* generations while the passive arm trains on
-*honest* ones: passive self-recognition is stylistic authorship (backdoors would
-only confound it), whereas causal collusion is recognising the shared backdoor
-signal, which cannot be learned from backdoor-free code. Attack mode also matches
-the BigCodeBench train generator. (Recorded as a decision, not a certainty --
-the closed run's training data was never published, so this could not be
-confirmed against it; see below.)
+Both SFT arms train in **attack** mode, on the distribution the monitor actually
+faces at eval time (U's attacks vs H's honeypots). An earlier version trained the
+passive arm on honest, backdoor-free code; that teaches authorship of a
+distribution the monitor never sees. BigCodeBench's train generator already used
+attack mode.
 
-Note the APPS passive train generator writes `honest_attacks.eval` /
-`honest_honeypots.eval` rather than the default `<label>.eval`, so its transform
-pair needs `Transform.input_files` to point at the right inputs.
+The cost of attack mode is yield: the both-task-correct filter keeps ~9% of
+passive attacks (91 examples) against 283 honeypots, versus ~65% in honest mode.
+Budget for that -- it is why the trainer needs `--batch-size 16` rather than the
+default 64, and why the `--val-frac` holdout is too small to be a generalisation
+estimate (it is a collapse detector only).
+
+H uses the **same default attack prompt in every arm**, so the negative class is
+identical across passive and causal SFT and the two are directly comparable.
+
+The honest-mode generator is kept alongside, in its own experiment folder, for
+the `self_rec_honest` / `self_rec_permuted` label-control arms -- their closed
+counterparts carry a `-honest` suffix and `permute_labels.py` still points at
+that data.
 
 End-to-end SFT reproduction (all generation steps need Docker):
 1. `generate_solutions_inspect.py` on the **train** split (`odd_train`) for U and

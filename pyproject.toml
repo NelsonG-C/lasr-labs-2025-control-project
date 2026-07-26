@@ -10,6 +10,9 @@ requires-python = ">=3.13"
 dependencies = [
     "click>=8.0.0",
     "control-arena==2.1.3",
+    # every entrypoint calls load_dotenv() to pick up API keys from .env; it was
+    # only ever present transitively
+    "python-dotenv>=1.0.0",
     "ipython>=9.4.0",
     "matplotlib>=3.10.5",
     "torch>=2.7.1",

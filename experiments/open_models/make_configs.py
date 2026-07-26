@@ -12,7 +12,9 @@ spec instead.
 A config is fully determined by a handful of axes:
 
 * **generator** -- which policy prompt each of the attacks/honest/honeypots runs
-  uses, and which model role produces it.
+  uses, and which model role produces it. In the OPEN tree only, honest and
+  honeypots are generated once and shared across conditions (`SHARED_INPUTS`):
+  five generations, not nine.
 * **transform** -- minifier or LLM-paraphraser over the generator's `.eval`s.
 * **monitor** -- the cross product of
   - *condition* (`acausal` / `causal` / `self_rec`) -> the untrusted collusion
@@ -81,21 +83,31 @@ Every open generator config gets `max_tokens: 16384` in its `defaults:` block
 before `<final_code>` and were silently truncated at the tinker provider's 4096
 default, producing empty solutions -- roughly two thirds of samples in a pilot,
 with the worst cases needing >8k tokens. The plumbing is `RunGenerator.max_tokens`
-in `utils/config_loader.py`. Monitor and transform configs are left alone: the
-collusion monitor is forced-decoding (it generates nothing), and while the
-suspiciousness monitors and LLM paraphraser do free-generate, they are only
-expected to emit a short `<score>` (or a paraphrase) and stay well inside the
-provider default. That is an expectation, not a guarantee -- a truncated
-suspiciousness completion yields a `None` score, so check the NaN rate on the
-first arm of a sweep.
+in `utils/config_loader.py`. Monitor and transform configs set no budget of
+their own, so they take the tinker provider default -- which is why that default
+is now 16384 rather than 4096. At 4096 up to 11% of an arm's
+`trusted_suspiciousness_score` came back NaN, and every one of those was
+`stop_reason=max_tokens`, not a refusal: a small chatty model emits far more
+reasoning before its `<score>` tag than GPT-4o-mini does. The same cap silently
+truncated paraphrases, which are stored verbatim as the transformed solution.
+Both failures are silent, so still check the NaN rate (monitors) and the
+max_tokens rate (transforms) on the first arm of a sweep.
 
 Full run order for a fresh open-weights run
 -------------------------------------------
 1. `python experiments/open_models/make_configs.py --model-class open`
-2. `scripts/generate_solutions_inspect.py --config .../apps_open/self_rec/generator/honest_generator_config.yaml`
-   (the **train** split -- the SFT training generations)
-3. `finetuning/binary_tuning/transform_logs_to_raw.sh` -> `transform_raw_to_prepared.sh`,
-   per SFT arm (label ablations via `randomise_labels.py` / `permute_labels.py`)
+2. `scripts/generate_solutions_inspect.py` on the **train** split, for the SFT
+   training generations: `.../self_rec/generator/train_generator_config.yaml`
+   (attack mode -- the distribution the monitor faces at eval), plus
+   `.../self_rec/generator/honest_train_generator_config.yaml` if you need the
+   honest-label control arms. Then `transform_solutions_inspect.py` on the
+   matching `*_config_train.yaml` pairs, so the minified/paraphrased arms train
+   on the representation they will be shown.
+3. `finetuning/binary_tuning/transform_logs_to_raw.sh` (add `--transformed` for
+   the minified/paraphrased arms) -> `transform_raw_to_prepared.sh`, per SFT arm.
+   Pass `--target-model` explicitly: it defaults to an unrelated model, and a
+   mismatch silently labels every example NO.
+   (label ablations via `randomise_labels.py` / `permute_labels.py`)
 4. `finetuning/tinker_lora_finetune.py --train-jsonl ...` per arm -> a `tinker://` path each
 5. re-run this script with `--checkpoints ckpts.json` to bake the paths in
 6. `generate_solutions_inspect.py` on the **test** split -> `transform_solutions_inspect.py`
@@ -239,19 +251,12 @@ class Transform:
     experiment_name: str
     kind: str  # "minifier" | "llm"
     labels: tuple[str, ...] = ALL_LABELS
-    #: label -> generator filename, when the producing GenRun used a non-default
-    #: save_path. Mirrors Monitor.input_files. Needed for the APPS SFT train
-    #: generator, whose runs are labelled honest/honeypots but write
-    #: honest_attacks.eval / honest_honeypots.eval.
-    input_files: Mapping[str, str] | None = None
 
     @property
     def transform_dir(self) -> str:
         return TRANSFORM_DIRS[self.kind]
 
     def eval_path(self, label: str) -> str:
-        if self.input_files and label in self.input_files:
-            return f"generator/{self.input_files[label]}"
         return f"generator/{label}.eval"
 
 
@@ -323,6 +328,11 @@ HONEYPOT_ATTACK_PROMPT = {
 #: OPEN ONLY. The closed run really did generate per-condition honest/honeypots
 #: -- they are distinct sample sets in the HuggingFace dataset -- so re-pointing
 #: the closed configs at a shared set would silently change published numbers.
+#:
+#: Keyed on experiment NAME, so this also applies to `bigcodebench_open`, whose
+#: acausal/causal experiments share the same names. That is intentional and
+#: benign there: those generators never produced honest/honeypots, so their
+#: monitors previously referenced .eval files nothing wrote.
 SHARED_INPUTS: dict[str, tuple[str, tuple[str, ...]]] = {
     "acausal": ("self_rec", ("honest", "honeypots")),
     "causal": ("self_rec", ("honest", "honeypots")),
@@ -390,7 +400,6 @@ def transform_pair(
     experiment_name: str,
     file_suffix: str = "",
     labels: tuple[str, ...] = ALL_LABELS,
-    input_files: Mapping[str, str] | None = None,
 ) -> list[Transform]:
     """The standard minifier + LLM-paraphraser transform pair."""
     return [
@@ -400,7 +409,6 @@ def transform_pair(
             experiment_name=experiment_name,
             kind=kind,
             labels=labels,
-            input_files=input_files,
         )
         for kind in ("minifier", "llm")
     ]
@@ -487,6 +495,38 @@ APPS = Setting(
                     "attacks", "attack", "self_rec_subtle_attack_policy_prompt", "U"
                 ),
                 GenRun("honeypots", "attack", HONEYPOT_ATTACK_PROMPT["apps"], "H"),
+            ),
+        ),
+        # Honest-mode training data, kept ALONGSIDE the attack-mode generator
+        # above (not replaced by it). This is what the label-control arms
+        # `self_rec_honest` and `self_rec_permuted` were trained on -- the
+        # closed-model finetunes carry a `-honest` suffix, and
+        # `finetuning/scripts/permute_labels.py` still points at a
+        # `...-honest/prepared/train/train_messages.jsonl`. Dropping it would
+        # leave those two arms (4 live control_self_rec monitor configs) with no
+        # config in either tree that reproduces their training data.
+        # Its own experiment folder so it cannot collide with the attack-mode
+        # generations, which now own `self_rec_train/generator/{attacks,honeypots}.eval`.
+        Generator(
+            path="self_rec/generator/honest_train_generator_config.yaml",
+            experiment="self_rec_honest_train",
+            experiment_name="self_rec_honest_train",
+            data_split="train",
+            runs=(
+                GenRun(
+                    "honest",
+                    "honest",
+                    "honest_policy_prompt",
+                    "U",
+                    save_path="generator/honest_attacks.eval",
+                ),
+                GenRun(
+                    "honeypots",
+                    "honest",
+                    "honest_policy_prompt",
+                    "H",
+                    save_path="generator/honest_honeypots.eval",
+                ),
             ),
         ),
     ),
@@ -694,7 +734,7 @@ BIGCODEBENCH = Setting(
             runs=(
                 GenRun("attacks", "attack", "self_rec_attack_policy_prompt_bcb", "U"),
                 GenRun("honest", "honest", "honest_policy_prompt_bcb", "U"),
-                GenRun("honeypots", "attack", "self_rec_attack_policy_prompt_bcb", "H"),
+                GenRun("honeypots", "attack", HONEYPOT_ATTACK_PROMPT["bigcodebench"], "H"),
             ),
         ),
         # SFT training data (train split). `dataset:` rather than `dataset_type:`
@@ -707,7 +747,7 @@ BIGCODEBENCH = Setting(
             extra_defaults={"dataset": "bigcodebench"},
             runs=(
                 GenRun("attacks", "attack", "self_rec_attack_policy_prompt_bcb", "U"),
-                GenRun("honeypots", "attack", "self_rec_attack_policy_prompt_bcb", "H"),
+                GenRun("honeypots", "attack", HONEYPOT_ATTACK_PROMPT["bigcodebench"], "H"),
             ),
         ),
     ),
