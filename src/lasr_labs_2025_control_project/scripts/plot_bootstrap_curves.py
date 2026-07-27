@@ -20,6 +20,7 @@ import numpy as np
 from lasr_labs_2025_control_project.utils.numerical_pipeline.visualization import (
     PLOT_FILE_FORMAT,
     plot_safety_usefulness_bands,
+    plot_safety_usefulness_bands_grid,
 )
 
 PANELS = [
@@ -62,6 +63,7 @@ def main() -> None:
         for setting_dir in sorted(class_dir.iterdir()):
             if not setting_dir.is_dir():
                 continue
+            panels: dict[str, dict] = {}
             for panel_slug, panel_title, group, suffix in PANELS:
                 bands = {}
                 for transform, label in TRANSFORMS:
@@ -71,6 +73,7 @@ def main() -> None:
                         bands[label] = load_band(path, args.ci)
                 if not bands:
                     continue
+                panels[panel_title] = bands
                 out_dir = args.out_root or (setting_dir / "plots")
                 plot_safety_usefulness_bands(
                     bands,
@@ -79,6 +82,17 @@ def main() -> None:
                         / f"{panel_slug}_safety_usefulness_bands.{PLOT_FILE_FORMAT}"
                     ),
                     ci_label=f"{panel_title}, {ci_label}",
+                )
+            if panels:
+                out_dir = args.out_root or (setting_dir / "plots")
+                plot_safety_usefulness_bands_grid(
+                    panels,
+                    save_path=str(
+                        out_dir
+                        / f"assembled_safety_usefulness_bands.{PLOT_FILE_FORMAT}"
+                    ),
+                    ci_label=f"{args.ci:.0%} CI",
+                    suptitle=f"{class_dir.name} / {setting_dir.name}",
                 )
 
 

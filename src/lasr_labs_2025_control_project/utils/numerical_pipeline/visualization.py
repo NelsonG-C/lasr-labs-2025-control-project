@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,7 +11,7 @@ import seaborn as sns
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
-from matplotlib.patches import Rectangle
+from matplotlib.patches import Patch, Rectangle
 from scipy.stats import pearsonr
 
 from lasr_labs_2025_control_project.utils.numerical_pipeline import (
@@ -1044,6 +1044,52 @@ def plot_safety_usefulness_curves(
     return
 
 
+#: Dash patterns per label position, matching seaborn lineplot's style
+#: rotation, so coincident curves (e.g. BigCodeBench, everything at ~1.0)
+#: stay individually visible.
+BAND_DASHES = ["-", (0, (4, 1.5)), (0, (1, 1)), (0, (3, 1, 1, 1))]
+
+
+def _draw_su_bands(
+    ax: Axes,
+    band_dict: dict[str, dict[str, list[float]]],
+    palette: dict[str, Any],
+) -> None:
+    """Draw median curves + safety bands (on the x axis) onto one axes."""
+    for idx, (label, band) in enumerate(band_dict.items()):
+        u = np.asarray(band["usefulness"], dtype=float)
+        order = np.argsort(u)
+        u = u[order]
+        med = np.asarray(band["safety_median"], dtype=float)[order]
+        lo = np.asarray(band["safety_lo"], dtype=float)[order]
+        hi = np.asarray(band["safety_hi"], dtype=float)[order]
+        color = palette[label]
+        dash = BAND_DASHES[idx % len(BAND_DASHES)]
+        ax.plot(med, u, color=color, label=label, zorder=1, linestyle=dash)
+        ax.scatter(med, u, color=color, **CONVERGED_SCATTER_KWARGS, zorder=2)
+        ax.fill_betweenx(u, lo, hi, color=color, alpha=0.18, linewidth=0, zorder=0.5)
+    ax.set_xlabel("Safety (Blue Team Win Rate)")
+    ax.set_ylabel("Usefulness (1 - Replacement FNR)")
+    _apply_standard_axes_style(ax)
+    _add_unit_square_outline(ax)
+
+
+def _band_legend_handles(
+    label_order: list[str], palette: dict[str, Any]
+) -> list[Line2D]:
+    return [
+        Line2D(
+            [],
+            [],
+            color=palette[label],
+            marker="o",
+            linestyle=BAND_DASHES[idx % len(BAND_DASHES)],
+            label=label,
+        )
+        for idx, label in enumerate(label_order)
+    ]
+
+
 def plot_safety_usefulness_bands(
     band_dict: dict[str, dict[str, list[float]]],
     save_path: str,
@@ -1068,24 +1114,7 @@ def plot_safety_usefulness_bands(
     palette = dict(zip(label_order, sns.color_palette("colorblind", len(label_order))))
 
     for a in (ax, axins):
-        for label in label_order:
-            band = band_dict[label]
-            u = np.asarray(band["usefulness"], dtype=float)
-            order = np.argsort(u)
-            u = u[order]
-            med = np.asarray(band["safety_median"], dtype=float)[order]
-            lo = np.asarray(band["safety_lo"], dtype=float)[order]
-            hi = np.asarray(band["safety_hi"], dtype=float)[order]
-            color = palette[label]
-            a.plot(med, u, color=color, label=label, zorder=1)
-            a.scatter(med, u, color=color, **CONVERGED_SCATTER_KWARGS, zorder=2)
-            # The band is on safety (the x axis) at each usefulness level.
-            a.fill_betweenx(u, lo, hi, color=color, alpha=0.18, linewidth=0, zorder=0.5)
-
-        a.set_xlabel("Safety (Blue Team Win Rate)")
-        a.set_ylabel("Usefulness (1 - Replacement FNR)")
-        _apply_standard_axes_style(a)
-        _add_unit_square_outline(a)
+        _draw_su_bands(a, band_dict, palette)
 
     ax.set_title(f"Safety vs Usefulness Tradeoff ({ci_label})")
     ax.set_xlim(0.0, 1.01)
@@ -1108,10 +1137,7 @@ def plot_safety_usefulness_bands(
     )
     ax.add_patch(box)
 
-    handles = [
-        Line2D([], [], color=palette[label], marker="o", label=label)
-        for label in label_order
-    ]
+    handles = _band_legend_handles(label_order, palette)
     fig.legend(
         handles,
         label_order,
@@ -1121,6 +1147,68 @@ def plot_safety_usefulness_bands(
         ncol=min(len(handles), 3),
     )
     fig.tight_layout(rect=(0, 0.08, 1, 1))
+    fig.savefig(dest_path, dpi=300, bbox_inches="tight")
+    print(f"Plot saved to: {dest_path}")
+    plt.close(fig)
+
+
+def plot_safety_usefulness_bands_grid(
+    panel_dict: dict[str, dict[str, dict[str, list[float]]]],
+    save_path: str,
+    ci_label: str = "80% CI",
+    suptitle: Optional[str] = None,
+) -> None:
+    """Assembled 3x2 grid of safety/usefulness band panels.
+
+    Five data panels (row-major) and the bottom-right cell as the key: the
+    shared transform legend plus a band-swatch explaining the shaded region.
+    Labels are colored/dashed consistently across panels (union of labels,
+    first-seen order).
+
+    panel_dict: panel title -> band_dict (as in plot_safety_usefulness_bands)
+    """
+    dest_path = Path(save_path)
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+
+    label_order: list[str] = []
+    for band_dict in panel_dict.values():
+        for label in band_dict:
+            if label not in label_order:
+                label_order.append(label)
+    palette = dict(zip(label_order, sns.color_palette("colorblind", len(label_order))))
+
+    fig, axes = plt.subplots(3, 2, figsize=(9, 13))
+    flat_axes = axes.flatten()
+
+    for ax, (title, band_dict) in zip(flat_axes, panel_dict.items()):
+        # Keep the shared color/dash assignment even in panels missing arms.
+        ordered = {
+            label: band_dict[label] for label in label_order if label in band_dict
+        }
+        _draw_su_bands(ax, ordered, palette)
+        ax.set_title(title)
+        ax.set_xlim(0.0, 1.01)
+        ax.set_ylim(0.0, 1.01)
+        ax.set_aspect("equal")
+
+    # Remaining cells: the last is the key, any others go blank.
+    key_ax = flat_axes[-1]
+    for ax in flat_axes[len(panel_dict) : -1]:
+        ax.set_axis_off()
+    key_ax.set_axis_off()
+    handles = _band_legend_handles(label_order, palette)
+    handles.append(Patch(facecolor="gray", alpha=0.18, label=f"Bootstrap {ci_label}"))
+    key_ax.legend(
+        handles=handles,
+        labels=[h.get_label() for h in handles],
+        loc="center",
+        frameon=False,
+        title="Key",
+    )
+
+    if suptitle:
+        fig.suptitle(suptitle, y=0.995)
+    fig.tight_layout()
     fig.savefig(dest_path, dpi=300, bbox_inches="tight")
     print(f"Plot saved to: {dest_path}")
     plt.close(fig)
