@@ -1044,6 +1044,88 @@ def plot_safety_usefulness_curves(
     return
 
 
+def plot_safety_usefulness_bands(
+    band_dict: dict[str, dict[str, list[float]]],
+    save_path: str,
+    ci_label: str = "80% CI",
+) -> None:
+    """House-style safety/usefulness plot with bootstrap bands.
+
+    Same layout as plot_safety_usefulness_curves (full panel + zoomed panel,
+    safety on x, usefulness on y, colorblind palette, unit-square outline,
+    legend below), but each label carries a median curve and a shaded
+    percentile band instead of a single point-estimate curve.
+
+    band_dict: label -> {"usefulness": [...], "safety_median": [...],
+                          "safety_lo": [...], "safety_hi": [...]}
+    """
+    dest_path = Path(save_path)
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+
+    fig, (ax, axins) = plt.subplots(1, 2, figsize=(9, 5))
+
+    label_order = list(band_dict.keys())
+    palette = dict(zip(label_order, sns.color_palette("colorblind", len(label_order))))
+
+    for a in (ax, axins):
+        for label in label_order:
+            band = band_dict[label]
+            u = np.asarray(band["usefulness"], dtype=float)
+            order = np.argsort(u)
+            u = u[order]
+            med = np.asarray(band["safety_median"], dtype=float)[order]
+            lo = np.asarray(band["safety_lo"], dtype=float)[order]
+            hi = np.asarray(band["safety_hi"], dtype=float)[order]
+            color = palette[label]
+            a.plot(med, u, color=color, label=label, zorder=1)
+            a.scatter(med, u, color=color, **CONVERGED_SCATTER_KWARGS, zorder=2)
+            # The band is on safety (the x axis) at each usefulness level.
+            a.fill_betweenx(u, lo, hi, color=color, alpha=0.18, linewidth=0, zorder=0.5)
+
+        a.set_xlabel("Safety (Blue Team Win Rate)")
+        a.set_ylabel("Usefulness (1 - Replacement FNR)")
+        _apply_standard_axes_style(a)
+        _add_unit_square_outline(a)
+
+    ax.set_title(f"Safety vs Usefulness Tradeoff ({ci_label})")
+    ax.set_xlim(0.0, 1.01)
+    ax.set_ylim(0.0, 1.01)
+    ax.set_aspect("equal")
+
+    axins.set_title("Zoomed: High Safety & Usefulness")
+    axins.set_xlim(0.6, 1.01)
+    axins.set_ylim(0.6, 1.01)
+
+    box = Rectangle(
+        (0.6, 0.6),
+        0.4,
+        0.4,
+        fill=False,
+        edgecolor="gray",
+        linewidth=1.5,
+        linestyle="--",
+        alpha=0.7,
+    )
+    ax.add_patch(box)
+
+    handles = [
+        Line2D([], [], color=palette[label], marker="o", label=label)
+        for label in label_order
+    ]
+    fig.legend(
+        handles,
+        label_order,
+        loc="lower center",
+        bbox_to_anchor=(0.5, -0.05),
+        frameon=False,
+        ncol=min(len(handles), 3),
+    )
+    fig.tight_layout(rect=(0, 0.08, 1, 1))
+    fig.savefig(dest_path, dpi=300, bbox_inches="tight")
+    print(f"Plot saved to: {dest_path}")
+    plt.close(fig)
+
+
 def save_safety_usefulness_jsonl(
     data_dict: dict[str, OptimizationResult],
     save_path: str = "src/lasr_labs_2025_control_project/results/safety_usefulness.jsonl",
