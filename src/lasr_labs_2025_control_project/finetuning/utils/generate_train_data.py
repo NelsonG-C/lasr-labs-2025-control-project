@@ -105,6 +105,20 @@ def prepare_rows(
       {"problem_id":..., "messages": [...]}
     """
     logger.info("Preparing rows for dataset")
+
+    # A target model that matches nothing labels every example NO, which
+    # trains the monitor to always answer NO -- and the resulting dataset
+    # looks superficially fine. Fail loudly instead.
+    models_present = {
+        solution.model for problem in dataset for solution in problem.solutions
+    }
+    if target_model_name not in models_present:
+        raise ValueError(
+            f"--target-model {target_model_name!r} matches no solution in this "
+            f"dataset; every example would be labelled NO. Models present: "
+            f"{sorted(models_present)}"
+        )
+
     rows = []
 
     for idx, problem in enumerate(dataset):
@@ -264,8 +278,12 @@ def build_and_save_jsonl(
 )
 @click.option(
     "--target-model",
-    default="grok-4-0709",
-    help="Name of the model to treat as positive examples",
+    required=True,
+    help=(
+        "Name of the model to treat as positive examples. Required: a wrong "
+        "or defaulted value silently labels every example NO, producing a "
+        "dataset that trains the monitor to always answer NO."
+    ),
 )
 @click.option(
     "--system-prompt",
