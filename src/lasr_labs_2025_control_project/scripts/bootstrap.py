@@ -90,7 +90,40 @@ def run_single_replicate(
     disable_trusted_monitor: bool,
     disable_untrusted_monitor: bool,
 ) -> Dict[str, Any]:
-    """Resample, re-fit, re-solve; return the analysis payload for one replicate."""
+    """Resample, re-fit, re-solve; return the analysis payload for one replicate.
+
+    A failed replicate (e.g. a degenerate resample making the LP solver choke,
+    observed as "HiGHS Status 4: Solve error") is recorded as an error row
+    rather than killing the whole overnight run; downstream analysis filters
+    on the presence of "sweep" and can report the failure rate from "error".
+    """
+    try:
+        return _run_single_replicate_inner(
+            replicate,
+            condition_seed=condition_seed,
+            attacks_df=attacks_df,
+            honeypots_df=honeypots_df,
+            benign_df=benign_df,
+            disable_trusted_monitor=disable_trusted_monitor,
+            disable_untrusted_monitor=disable_untrusted_monitor,
+        )
+    except Exception as exc:
+        return {
+            "bootstrap_replicate": replicate,
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
+
+def _run_single_replicate_inner(
+    replicate: int,
+    *,
+    condition_seed: int,
+    attacks_df: pd.DataFrame,
+    honeypots_df: pd.DataFrame,
+    benign_df: pd.DataFrame,
+    disable_trusted_monitor: bool,
+    disable_untrusted_monitor: bool,
+) -> Dict[str, Any]:
     seeds = np.random.SeedSequence([condition_seed, replicate]).generate_state(3)
     config = build_optimization_config(
         num_tasks=NUM_TASKS,
@@ -200,6 +233,11 @@ def bootstrap_condition(
             for r in chunk
         )
         # Appending opens a new gzip member; readers see one continuous stream.
+        failed = [p["bootstrap_replicate"] for p in payloads if "error" in p]
+        if failed:
+            logger.warning(
+                "[%s] %d failed replicate(s) in chunk: %s", key, len(failed), failed
+            )
         with gzip.open(lines_path, "at", encoding="utf-8") as f:
             for payload in payloads:
                 f.write(json.dumps(payload) + "\n")
