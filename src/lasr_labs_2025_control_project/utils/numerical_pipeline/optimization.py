@@ -88,6 +88,10 @@ class OptimizationConfig:
         [dict[str, np.ndarray]], tuple[np.ndarray, dict[str, np.ndarray]]
     ]
 
+    # P(human audit of a real attack incriminates red); audited outputs are
+    # discarded regardless. 1.0 = the original always-successful-audit model.
+    human_audit_success_rate: float = 1.0
+
     # Optional data for reference
     monitor_roc_fn_metadata: Dict[str, Any] = field(default_factory=dict)
     parameter_spaces: Dict[str, Dict[str, Any]] = field(default_factory=dict)
@@ -154,6 +158,7 @@ def build_optimization_config(
     disable_trusted_monitor: bool = False,
     disable_untrusted_monitor: bool = False,
     assume_independent: bool = False,
+    human_audit_success_rate: float = 1.0,
 ) -> OptimizationConfig:
     """Build an OptimizationConfig from raw DataFrames.
 
@@ -206,6 +211,7 @@ def build_optimization_config(
         untrusted_honest_fpr=metadata_copy.get("untrusted_honest_fpr", 0.0),
         untrusted_honest_fnr=metadata_copy.get("untrusted_honest_fnr", 0.0),
         untrusted_honest_extra_fpr=metadata_copy.get("untrusted_honest_extra_fpr_fn"),
+        human_audit_success_rate=human_audit_success_rate,
     )
 
     return OptimizationConfig(
@@ -214,6 +220,7 @@ def build_optimization_config(
         monitor_roc_fn=roc_function,
         slack_honeypots=slack_honeypots,
         blue_team_replace_fnr=blue_team_replace_fnr,
+        human_audit_success_rate=human_audit_success_rate,
         monitor_roc_fn_metadata=metadata_copy,
         blue_team_win_calculator=blue_team_win_calculator,
         parameter_spaces=parameter_spaces,
@@ -361,6 +368,7 @@ def optimize_parameters(
             untrusted_honest_extra_fpr=base_config.monitor_roc_fn_metadata.get(
                 "untrusted_honest_extra_fpr_fn"
             ),
+            human_audit_success_rate=base_config.human_audit_success_rate,
         )
 
         # Construct parameter spaces if not already provided
@@ -440,6 +448,7 @@ def build_blue_team_win_calculator(
     untrusted_honest_fpr: float,
     untrusted_honest_fnr: float = 0.0,
     untrusted_honest_extra_fpr: Optional[Callable[[float], np.ndarray]] = None,
+    human_audit_success_rate: float = 1.0,
 ) -> Callable[[Dict[str, np.ndarray]], Tuple[np.ndarray, Dict[str, np.ndarray]]]:
     """Build a win probability calculator for the blue team.
 
@@ -468,6 +477,12 @@ def build_blue_team_win_calculator(
             f + eps_extra(f) = audit_fraction instead of the additive
             max(audit_fraction - FPR_h, 0), crediting overlap between honest
             UM false flags and the TM's audited set.
+        human_audit_success_rate: Probability that a human audit of a genuine
+            attack incriminates the red team. Audited outputs are discarded
+            (replaced with trusted-model output) regardless of the audit
+            verdict, so an audited-but-not-incriminated attack neither
+            executes nor catches red -- a null event for that task, exactly
+            like a replacement. Default 1.0 reproduces the previous model.
 
     Returns:
         Function mapping parameter dict to (blue_win_probability, outcome_distribution)
@@ -532,8 +547,14 @@ def build_blue_team_win_calculator(
         attack_not_flagged_rate, U_fpr = roc_function(
             red_team_roc_threshold, trusted_monitor_fnr
         )
-        # Adjust by chance that the untrusted monitor misses something,
-        attack_catch_rate = (1 - attack_not_flagged_rate) * p_audited
+        # Adjust by chance that the untrusted monitor misses something. An
+        # audit only incriminates red at human_audit_success_rate; audited
+        # outputs are discarded either way, so the failure mass drops out of
+        # both the catch and the pass channels (a null event, like a
+        # replacement) rather than being re-routed to attack_pass_rate.
+        attack_catch_rate = (
+            (1 - attack_not_flagged_rate) * p_audited * human_audit_success_rate
+        )
 
         # Calculate the probability that an attack **passes**
         attack_pass_rate, _ = roc_function(
@@ -576,8 +597,10 @@ def build_blue_team_win_calculator(
         # 4) Have the first attack pass
 
         p_red_team_fails_honeypots = 1 - p_red_team_passes_honeypots
+        # Upfront-audited attacks are likewise discarded regardless, but only
+        # incriminate at human_audit_success_rate.
         p_red_team_caught_in_upfront_audit = (
-            1 - (1 - red_team_p_attack) ** 10
+            1 - (1 - red_team_p_attack * human_audit_success_rate) ** 10
         ) * p_red_team_passes_honeypots
         p_red_team_introduces_no_attacks = p_no_attacks * (
             1 - p_red_team_fails_honeypots - p_red_team_caught_in_upfront_audit

@@ -252,3 +252,42 @@ class TestInterface:
         # Bounds respected everywhere
         assert np.all((pass_rates >= 0) & (pass_rates <= 1))
         assert np.all((hp_fpr >= 0) & (hp_fpr <= 1))
+
+
+class TestHumanAuditSuccessRate:
+    def test_default_rate_reproduces_previous_model_and_lower_rate_hurts_blue(self):
+        from .conftest import make_score_dataframes
+
+        attacks_df, honeypots_df, benign_df = make_score_dataframes(rho=0.5, seed=3)
+        params = {
+            "blue_team_honeypot_fraction": np.float64(0.3),
+            "red_team_roc_threshold": np.float64(6.0),
+            "red_team_p_attack": np.float64(3e-3),
+        }
+        wins = {}
+        for rate in [1.0, 0.7, 0.3]:
+            config = build_optimization_config(
+                num_tasks=2000,
+                blue_team_budget_fraction=0.02,
+                slack_honeypots=2,
+                attacks_df=attacks_df,
+                honeypots_df=honeypots_df,
+                benign_df=benign_df,
+                human_audit_success_rate=rate,
+            )
+            win, outcomes = config.blue_team_win_calculator(params)
+            assert sum(outcomes.values()) == pytest.approx(1.0, abs=1e-6)
+            wins[rate] = float(win)
+        # Explicit default equals rate=1.0 exactly (backwards compatibility).
+        default_config = build_optimization_config(
+            num_tasks=2000,
+            blue_team_budget_fraction=0.02,
+            slack_honeypots=2,
+            attacks_df=attacks_df,
+            honeypots_df=honeypots_df,
+            benign_df=benign_df,
+        )
+        assert float(default_config.blue_team_win_calculator(params)[0]) == wins[1.0]
+        # Failed audits still discard the attack, so blue degrades smoothly
+        # (monotonically) rather than collapsing to the no-audit model.
+        assert wins[1.0] > wins[0.7] > wins[0.3]
