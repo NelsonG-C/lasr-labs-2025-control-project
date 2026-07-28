@@ -23,6 +23,7 @@ from lasr_labs_2025_control_project.utils.numerical_pipeline.visualization impor
     plot_safety_usefulness_bands_grid,
 )
 
+
 PANELS = [
     ("acausal", "Acausal", "acausal", "base"),
     ("causal", "Causal", "causal", "base"),
@@ -30,7 +31,11 @@ PANELS = [
     ("self_rec", "Passive Self-Rec", "self_rec", "base"),
     ("self_rec_sft", "Passive Self-Rec + SFT", "self_rec", "sft"),
 ]
-TRANSFORMS = [("none", "None"), ("minified", "Minified"), ("paraphrased", "Paraphrased")]
+TRANSFORMS = [
+    ("none", "None"),
+    ("minified", "Minified"),
+    ("paraphrased", "Paraphrased"),
+]
 
 
 def load_band(path: Path, ci: float) -> dict[str, list[float]]:
@@ -51,10 +56,33 @@ def load_band(path: Path, ci: float) -> dict[str, list[float]]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bootstrap-root", type=Path, required=True)
-    parser.add_argument("--out-root", type=Path, default=None,
-                        help="Default: <bootstrap-root>/<class>/<setting>/plots")
+    parser.add_argument(
+        "--out-root",
+        type=Path,
+        default=None,
+        help="Default: <bootstrap-root>/<class>/<setting>/plots",
+    )
     parser.add_argument("--ci", type=float, default=0.80)
+    parser.add_argument(
+        "--audit",
+        type=Path,
+        default=None,
+        help=(
+            "event_count_audit.json (helpers/event_count_audit.py). When "
+            "given, ALSO emit *_diagnostic figures with X markers on cells "
+            "the audit marked SATURATED."
+        ),
+    )
     args = parser.parse_args()
+    audit = json.loads(args.audit.read_text()) if args.audit else None
+
+    def saturated_us(class_name: str, setting: str, group: str, arm: str) -> set:
+        if audit is None:
+            return set()
+        rep = audit.get(f"{class_name}/{setting}/{group}/{arm}")
+        if not rep:
+            return set()
+        return {c["usefulness"] for c in rep["cells"] if c["verdict"] == "SATURATED"}
 
     ci_label = f"{args.ci:.0%} CI, bootstrap"
     for class_dir in sorted(args.bootstrap_root.iterdir()):
@@ -64,16 +92,29 @@ def main() -> None:
             if not setting_dir.is_dir():
                 continue
             panels: dict[str, dict] = {}
+            panel_saturation: dict[str, dict[str, set]] = {}
             for panel_slug, panel_title, group, suffix in PANELS:
                 bands = {}
+                sat: dict[str, set] = {}
                 for transform, label in TRANSFORMS:
-                    path = (setting_dir / group / f"{transform}_{suffix}"
-                            / "replicates.jsonl.gz")
+                    path = (
+                        setting_dir
+                        / group
+                        / f"{transform}_{suffix}"
+                        / "replicates.jsonl.gz"
+                    )
                     if path.exists():
                         bands[label] = load_band(path, args.ci)
+                        sat[label] = saturated_us(
+                            class_dir.name,
+                            setting_dir.name,
+                            group,
+                            f"{transform}_{suffix}",
+                        )
                 if not bands:
                     continue
                 panels[panel_title] = bands
+                panel_saturation[panel_title] = sat
                 out_dir = args.out_root or (setting_dir / "plots")
                 plot_safety_usefulness_bands(
                     bands,
@@ -83,6 +124,16 @@ def main() -> None:
                     ),
                     ci_label=f"{panel_title}, {ci_label}",
                 )
+                if audit is not None:
+                    plot_safety_usefulness_bands(
+                        bands,
+                        save_path=str(
+                            out_dir
+                            / f"{panel_slug}_safety_usefulness_bands_diagnostic.{PLOT_FILE_FORMAT}"
+                        ),
+                        ci_label=f"{panel_title}, {ci_label}",
+                        saturated=sat,
+                    )
             if panels:
                 out_dir = args.out_root or (setting_dir / "plots")
                 plot_safety_usefulness_bands_grid(
@@ -94,6 +145,17 @@ def main() -> None:
                     ci_label=f"{args.ci:.0%} CI",
                     suptitle=f"{class_dir.name} / {setting_dir.name}",
                 )
+                if audit is not None:
+                    plot_safety_usefulness_bands_grid(
+                        panels,
+                        save_path=str(
+                            out_dir
+                            / f"assembled_safety_usefulness_bands_diagnostic.{PLOT_FILE_FORMAT}"
+                        ),
+                        ci_label=f"{args.ci:.0%} CI",
+                        suptitle=f"{class_dir.name} / {setting_dir.name}",
+                        saturated=panel_saturation,
+                    )
 
 
 if __name__ == "__main__":

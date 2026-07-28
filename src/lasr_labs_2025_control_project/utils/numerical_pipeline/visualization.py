@@ -1050,12 +1050,26 @@ def plot_safety_usefulness_curves(
 BAND_DASHES = ["-", (0, (4, 1.5)), (0, (1, 1)), (0, (3, 1, 1, 1))]
 
 
+#: Short criterion string shown in diagnostic legends. Kept next to the
+#: drawing code so plots and audit stay in sync (see helpers/event_count_audit.py).
+SATURATION_LEGEND_LABEL = (
+    "Saturated: 0 attack-pass events at equilibrium\n"
+    "(safety pinned at boundary; CI width not meaningful)"
+)
+
+
 def _draw_su_bands(
     ax: Axes,
     band_dict: dict[str, dict[str, list[float]]],
     palette: dict[str, Any],
+    saturated: Optional[dict[str, set]] = None,
 ) -> None:
-    """Draw median curves + safety bands (on the x axis) onto one axes."""
+    """Draw median curves + safety bands (on the x axis) onto one axes.
+
+    saturated: optional label -> set of usefulness values whose cells the
+    event-count audit marked SATURATED; those points draw as X markers
+    instead of circles (diagnostic plots).
+    """
     for idx, (label, band) in enumerate(band_dict.items()):
         u = np.asarray(band["usefulness"], dtype=float)
         order = np.argsort(u)
@@ -1066,12 +1080,37 @@ def _draw_su_bands(
         color = palette[label]
         dash = BAND_DASHES[idx % len(BAND_DASHES)]
         ax.plot(med, u, color=color, label=label, zorder=1, linestyle=dash)
-        ax.scatter(med, u, color=color, **CONVERGED_SCATTER_KWARGS, zorder=2)
+        sat_us = (saturated or {}).get(label, set())
+        is_sat = np.array([any(abs(x - s) < 1e-9 for s in sat_us) for x in u])
+        ax.scatter(
+            med[~is_sat], u[~is_sat], color=color, **CONVERGED_SCATTER_KWARGS, zorder=2
+        )
+        if is_sat.any():
+            ax.scatter(
+                med[is_sat],
+                u[is_sat],
+                color=color,
+                marker="X",
+                **CONVERGED_SCATTER_KWARGS,
+                zorder=2.5,
+            )
         ax.fill_betweenx(u, lo, hi, color=color, alpha=0.18, linewidth=0, zorder=0.5)
     ax.set_xlabel("Safety (Blue Team Win Rate)")
     ax.set_ylabel("Usefulness (1 - Replacement FNR)")
     _apply_standard_axes_style(ax)
     _add_unit_square_outline(ax)
+
+
+def _saturation_legend_handle() -> Line2D:
+    return Line2D(
+        [],
+        [],
+        color="#444444",
+        marker="X",
+        linestyle="None",
+        markersize=9,
+        label=SATURATION_LEGEND_LABEL,
+    )
 
 
 def _band_legend_handles(
@@ -1094,6 +1133,7 @@ def plot_safety_usefulness_bands(
     band_dict: dict[str, dict[str, list[float]]],
     save_path: str,
     ci_label: str = "80% CI",
+    saturated: Optional[dict[str, set]] = None,
 ) -> None:
     """House-style safety/usefulness plot with bootstrap bands.
 
@@ -1114,9 +1154,12 @@ def plot_safety_usefulness_bands(
     palette = dict(zip(label_order, sns.color_palette("colorblind", len(label_order))))
 
     for a in (ax, axins):
-        _draw_su_bands(a, band_dict, palette)
+        _draw_su_bands(a, band_dict, palette, saturated=saturated)
 
-    ax.set_title(f"Safety vs Usefulness Tradeoff ({ci_label})")
+    title = f"Safety vs Usefulness Tradeoff ({ci_label})"
+    if saturated is not None:
+        title = f"DIAGNOSTIC: {title}"
+    ax.set_title(title)
     ax.set_xlim(0.0, 1.01)
     ax.set_ylim(0.0, 1.01)
     ax.set_aspect("equal")
@@ -1138,15 +1181,17 @@ def plot_safety_usefulness_bands(
     ax.add_patch(box)
 
     handles = _band_legend_handles(label_order, palette)
+    if saturated is not None:
+        handles.append(_saturation_legend_handle())
     fig.legend(
         handles,
-        label_order,
+        [h.get_label() for h in handles],
         loc="lower center",
-        bbox_to_anchor=(0.5, -0.05),
+        bbox_to_anchor=(0.5, -0.08),
         frameon=False,
         ncol=min(len(handles), 3),
     )
-    fig.tight_layout(rect=(0, 0.08, 1, 1))
+    fig.tight_layout(rect=(0, 0.1, 1, 1))
     fig.savefig(dest_path, dpi=300, bbox_inches="tight")
     print(f"Plot saved to: {dest_path}")
     plt.close(fig)
@@ -1157,6 +1202,7 @@ def plot_safety_usefulness_bands_grid(
     save_path: str,
     ci_label: str = "80% CI",
     suptitle: Optional[str] = None,
+    saturated: Optional[dict[str, dict[str, set]]] = None,
 ) -> None:
     """Assembled 3x2 grid of safety/usefulness band panels.
 
@@ -1185,7 +1231,7 @@ def plot_safety_usefulness_bands_grid(
         ordered = {
             label: band_dict[label] for label in label_order if label in band_dict
         }
-        _draw_su_bands(ax, ordered, palette)
+        _draw_su_bands(ax, ordered, palette, saturated=(saturated or {}).get(title))
         ax.set_title(title)
         ax.set_xlim(0.0, 1.01)
         ax.set_ylim(0.0, 1.01)
@@ -1198,6 +1244,9 @@ def plot_safety_usefulness_bands_grid(
     key_ax.set_axis_off()
     handles = _band_legend_handles(label_order, palette)
     handles.append(Patch(facecolor="gray", alpha=0.18, label=f"Bootstrap {ci_label}"))
+    if saturated is not None:
+        handles.append(_saturation_legend_handle())
+        suptitle = f"DIAGNOSTIC: {suptitle}" if suptitle else "DIAGNOSTIC"
     key_ax.legend(
         handles=handles,
         labels=[h.get_label() for h in handles],
