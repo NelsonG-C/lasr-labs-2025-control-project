@@ -1056,20 +1056,25 @@ SATURATION_LEGEND_LABEL = (
     "Saturated: 0 attack-pass events at equilibrium\n"
     "(safety pinned at boundary; CI width not meaningful)"
 )
+CRITICAL_LEGEND_LABEL = (
+    "Critical: <1 attack-pass event at equilibrium\n"
+    "(sub-sample support; CI unreliable)"
+)
 
 
 def _draw_su_bands(
     ax: Axes,
     band_dict: dict[str, dict[str, list[float]]],
     palette: dict[str, Any],
-    saturated: Optional[dict[str, set]] = None,
+    saturated: Optional[dict[str, dict]] = None,
 ) -> None:
     """Draw median curves + safety bands (on the x axis) onto one axes.
 
-    saturated: optional label -> set of usefulness values whose cells the
-    event-count audit marked SATURATED; those points draw as X markers
+    saturated: optional label -> {usefulness: verdict} from the event-count
+    audit; SATURATED cells draw as X markers and CRITICAL cells as triangles
     instead of circles (diagnostic plots).
     """
+    verdict_markers = {"SATURATED": "X", "CRITICAL": "^"}
     for idx, (label, band) in enumerate(band_dict.items()):
         u = np.asarray(band["usefulness"], dtype=float)
         order = np.argsort(u)
@@ -1080,20 +1085,30 @@ def _draw_su_bands(
         color = palette[label]
         dash = BAND_DASHES[idx % len(BAND_DASHES)]
         ax.plot(med, u, color=color, label=label, zorder=1, linestyle=dash)
-        sat_us = (saturated or {}).get(label, set())
-        is_sat = np.array([any(abs(x - s) < 1e-9 for s in sat_us) for x in u])
-        ax.scatter(
-            med[~is_sat], u[~is_sat], color=color, **CONVERGED_SCATTER_KWARGS, zorder=2
-        )
-        if is_sat.any():
-            ax.scatter(
-                med[is_sat],
-                u[is_sat],
-                color=color,
-                marker="X",
-                **CONVERGED_SCATTER_KWARGS,
-                zorder=2.5,
+        cell_verdicts = (saturated or {}).get(label, {})
+
+        def verdict_of(x: float) -> str:
+            for s, v in cell_verdicts.items():
+                if abs(x - float(s)) < 1e-9:
+                    return v
+            return "OK"
+
+        verdicts = np.array([verdict_of(x) for x in u])
+        for verdict, marker in [("OK", "o"), *verdict_markers.items()]:
+            mask = (
+                verdicts == verdict
+                if verdict != "OK"
+                else ~np.isin(verdicts, list(verdict_markers))
             )
+            if mask.any():
+                ax.scatter(
+                    med[mask],
+                    u[mask],
+                    color=color,
+                    marker=marker,
+                    **CONVERGED_SCATTER_KWARGS,
+                    zorder=2.5 if verdict != "OK" else 2,
+                )
         ax.fill_betweenx(u, lo, hi, color=color, alpha=0.18, linewidth=0, zorder=0.5)
     ax.set_xlabel("Safety (Blue Team Win Rate)")
     ax.set_ylabel("Usefulness (1 - Replacement FNR)")
@@ -1101,16 +1116,22 @@ def _draw_su_bands(
     _add_unit_square_outline(ax)
 
 
-def _saturation_legend_handle() -> Line2D:
-    return Line2D(
-        [],
-        [],
-        color="#444444",
-        marker="X",
-        linestyle="None",
-        markersize=9,
-        label=SATURATION_LEGEND_LABEL,
-    )
+def _saturation_legend_handles() -> list[Line2D]:
+    return [
+        Line2D(
+            [],
+            [],
+            color="#444444",
+            marker=marker,
+            linestyle="None",
+            markersize=9,
+            label=label,
+        )
+        for marker, label in [
+            ("X", SATURATION_LEGEND_LABEL),
+            ("^", CRITICAL_LEGEND_LABEL),
+        ]
+    ]
 
 
 def _band_legend_handles(
@@ -1182,7 +1203,7 @@ def plot_safety_usefulness_bands(
 
     handles = _band_legend_handles(label_order, palette)
     if saturated is not None:
-        handles.append(_saturation_legend_handle())
+        handles.extend(_saturation_legend_handles())
     fig.legend(
         handles,
         [h.get_label() for h in handles],
@@ -1245,7 +1266,7 @@ def plot_safety_usefulness_bands_grid(
     handles = _band_legend_handles(label_order, palette)
     handles.append(Patch(facecolor="gray", alpha=0.18, label=f"Bootstrap {ci_label}"))
     if saturated is not None:
-        handles.append(_saturation_legend_handle())
+        handles.extend(_saturation_legend_handles())
         suptitle = f"DIAGNOSTIC: {suptitle}" if suptitle else "DIAGNOSTIC"
     key_ax.legend(
         handles=handles,

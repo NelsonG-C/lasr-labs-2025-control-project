@@ -76,13 +76,17 @@ def main() -> None:
     args = parser.parse_args()
     audit = json.loads(args.audit.read_text()) if args.audit else None
 
-    def saturated_us(class_name: str, setting: str, group: str, arm: str) -> set:
+    def saturated_us(class_name: str, setting: str, group: str, arm: str) -> dict:
         if audit is None:
-            return set()
+            return {}
         rep = audit.get(f"{class_name}/{setting}/{group}/{arm}")
         if not rep:
-            return set()
-        return {c["usefulness"] for c in rep["cells"] if c["verdict"] == "SATURATED"}
+            return {}
+        return {
+            c["usefulness"]: c["verdict"]
+            for c in rep["cells"]
+            if c["verdict"] in ("SATURATED", "CRITICAL")
+        }
 
     ci_label = f"{args.ci:.0%} CI, bootstrap"
     for class_dir in sorted(args.bootstrap_root.iterdir()):
