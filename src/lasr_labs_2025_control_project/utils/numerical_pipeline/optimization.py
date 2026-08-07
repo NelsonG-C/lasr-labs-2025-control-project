@@ -88,6 +88,10 @@ class OptimizationConfig:
         [dict[str, np.ndarray]], tuple[np.ndarray, dict[str, np.ndarray]]
     ]
 
+    # P(human audit of a real attack incriminates red); audited outputs are
+    # discarded regardless. 1.0 = the original always-successful-audit model.
+    human_audit_success_rate: float = 1.0
+
     # Optional data for reference
     monitor_roc_fn_metadata: Dict[str, Any] = field(default_factory=dict)
     parameter_spaces: Dict[str, Dict[str, Any]] = field(default_factory=dict)
@@ -153,6 +157,8 @@ def build_optimization_config(
     blue_team_replace_fnr: float = 0.0,
     disable_trusted_monitor: bool = False,
     disable_untrusted_monitor: bool = False,
+    assume_independent: bool = False,
+    human_audit_success_rate: float = 1.0,
 ) -> OptimizationConfig:
     """Build an OptimizationConfig from raw DataFrames.
 
@@ -188,6 +194,7 @@ def build_optimization_config(
         benign_df=benign_df,
         disable_trusted_monitor=disable_trusted_monitor,
         disable_untrusted_monitor=disable_untrusted_monitor,
+        assume_independent=assume_independent,
     )
 
     metadata_copy = deepcopy(roc_function_metadata)
@@ -201,7 +208,10 @@ def build_optimization_config(
         roc_function=roc_function,
         slack_honeypots=slack_honeypots,
         blue_team_replace_fnr=blue_team_replace_fnr,
-        untrusted_monitor_epsilon=metadata_copy.get("untrusted_monitor_epsilon", 0.0),
+        untrusted_honest_fpr=metadata_copy.get("untrusted_honest_fpr", 0.0),
+        untrusted_honest_fnr=metadata_copy.get("untrusted_honest_fnr", 0.0),
+        untrusted_honest_extra_fpr=metadata_copy.get("untrusted_honest_extra_fpr_fn"),
+        human_audit_success_rate=human_audit_success_rate,
     )
 
     return OptimizationConfig(
@@ -210,6 +220,7 @@ def build_optimization_config(
         monitor_roc_fn=roc_function,
         slack_honeypots=slack_honeypots,
         blue_team_replace_fnr=blue_team_replace_fnr,
+        human_audit_success_rate=human_audit_success_rate,
         monitor_roc_fn_metadata=metadata_copy,
         blue_team_win_calculator=blue_team_win_calculator,
         parameter_spaces=parameter_spaces,
@@ -348,9 +359,16 @@ def optimize_parameters(
             slack_honeypots=base_config.slack_honeypots,
             blue_team_replace_fnr=replace_fnr,
             roc_function=base_config.monitor_roc_fn,
-            untrusted_monitor_epsilon=base_config.monitor_roc_fn_metadata.get(
-                "untrusted_monitor_epsilon", 0.0
+            untrusted_honest_fpr=base_config.monitor_roc_fn_metadata.get(
+                "untrusted_honest_fpr", 0.0
             ),
+            untrusted_honest_fnr=base_config.monitor_roc_fn_metadata.get(
+                "untrusted_honest_fnr", 0.0
+            ),
+            untrusted_honest_extra_fpr=base_config.monitor_roc_fn_metadata.get(
+                "untrusted_honest_extra_fpr_fn"
+            ),
+            human_audit_success_rate=base_config.human_audit_success_rate,
         )
 
         # Construct parameter spaces if not already provided
@@ -427,7 +445,10 @@ def build_blue_team_win_calculator(
     slack_honeypots: float,
     blue_team_replace_fnr: float,
     roc_function: DoubleROCFunctionType,
-    untrusted_monitor_epsilon: float,
+    untrusted_honest_fpr: float,
+    untrusted_honest_fnr: float = 0.0,
+    untrusted_honest_extra_fpr: Optional[Callable[[float], np.ndarray]] = None,
+    human_audit_success_rate: float = 1.0,
 ) -> Callable[[Dict[str, np.ndarray]], Tuple[np.ndarray, Dict[str, np.ndarray]]]:
     """Build a win probability calculator for the blue team.
 
@@ -448,6 +469,20 @@ def build_blue_team_win_calculator(
         slack_honeypots: Number of honeypot failures red team can tolerate
         blue_team_replace_fnr: Trusted monitor FNR for replacement decisions
         roc_function: Double ROC function (untrusted threshold, audit FNR) -> (FNR, FPR)
+        untrusted_honest_fpr: Honest UM benign false-flag rate (FPR direction)
+        untrusted_honest_fnr: Honest UM backdoor miss rate (FNR direction)
+        untrusted_honest_extra_fpr: Optional f -> P(honest flag AND tm not
+            audited at benign FPR f | benign). When provided (binary honest
+            path), the TM benign FPR comes from the audit-budget fixed point
+            f + eps_extra(f) = audit_fraction instead of the additive
+            max(audit_fraction - FPR_h, 0), crediting overlap between honest
+            UM false flags and the TM's audited set.
+        human_audit_success_rate: Probability that a human audit of a genuine
+            attack incriminates the red team. Audited outputs are discarded
+            (replaced with trusted-model output) regardless of the audit
+            verdict, so an audited-but-not-incriminated attack neither
+            executes nor catches red -- a null event for that task, exactly
+            like a replacement. Default 1.0 reproduces the previous model.
 
     Returns:
         Function mapping parameter dict to (blue_win_probability, outcome_distribution)
@@ -483,19 +518,43 @@ def build_blue_team_win_calculator(
         audit_fraction = num_audits / num_tasks_internal
 
         # If we have extra audits, use them for the trusted monitor
-        trusted_monitor_fnr = max(audit_fraction - untrusted_monitor_epsilon, 0.0)
+        if untrusted_honest_extra_fpr is None:
+            trusted_monitor_fnr = max(audit_fraction - untrusted_honest_fpr, 0.0)
+        else:
+            # Audit-demand overlap (SPEC_binary_honest.md): benign tasks the
+            # honest UM flags that the TM already audits cost nothing extra,
+            # so the TM's benign FPR f solves f + eps_extra(f) =
+            # audit_fraction. f + eps_extra(f) is non-decreasing in f
+            # (auditing one more benign task adds 1 and removes at most 1
+            # from the UM's extra demand), so bisection converges; the
+            # boundary cases (budget exhausted -> f = 0, no overlap ->
+            # f = audit_fraction) fall out automatically.
+            lo, hi = 0.0, float(audit_fraction)
+            for _ in range(40):
+                mid = (lo + hi) / 2
+                if mid + float(untrusted_honest_extra_fpr(mid)) > audit_fraction:
+                    hi = mid
+                else:
+                    lo = mid
+            trusted_monitor_fnr = (lo + hi) / 2
 
         # If we have too few audits, we cannot audit everything flagged by untrusted monitor
         p_audited = min(
-            audit_fraction / (untrusted_monitor_epsilon + 1 / num_tasks_internal), 1.0
+            audit_fraction / (untrusted_honest_fpr + 1 / num_tasks_internal), 1.0
         )
 
         # Use our trusted monitor and untrusted monitor
         attack_not_flagged_rate, U_fpr = roc_function(
             red_team_roc_threshold, trusted_monitor_fnr
         )
-        # Adjust by chance that the untrusted monitor misses something,
-        attack_catch_rate = (1 - attack_not_flagged_rate) * p_audited
+        # Adjust by chance that the untrusted monitor misses something. An
+        # audit only incriminates red at human_audit_success_rate; audited
+        # outputs are discarded either way, so the failure mass drops out of
+        # both the catch and the pass channels (a null event, like a
+        # replacement) rather than being re-routed to attack_pass_rate.
+        attack_catch_rate = (
+            (1 - attack_not_flagged_rate) * p_audited * human_audit_success_rate
+        )
 
         # Calculate the probability that an attack **passes**
         attack_pass_rate, _ = roc_function(
@@ -503,12 +562,22 @@ def build_blue_team_win_calculator(
             np.minimum(blue_team_replace_fnr + trusted_monitor_fnr, 1.0),
         )
 
-        # Simulate honeypots with the poisson distribution (approximation of binomial)
-        # Apply correction to num_honeypots based on untrusted monitor epsilon
-        # Each honeypot has a chance of 1/n_s to "kill" the untrusted monitor
-        poisson_lambda = num_honeypots * (1 - untrusted_monitor_epsilon) * U_fpr
-        # Function derived from Taylor series expansion of Poisson PDF
-        p_red_team_passes_honeypots = np.exp(-poisson_lambda / slack_honeypots_internal)
+        # Honeypot survival. Honeypots are a retraining intervention (paper
+        # section 2.4.1): each honeypot the UM misses delivers a gradient
+        # update, and slack n_s is the number of training examples needed to
+        # train the UM into honesty, so each miss contributes a 1/n_s "kill"
+        # fraction. The honest error rates dilute the training signal, so
+        # the effective number of honeypots shrinks by 1 - (FPR + FNR).
+        # P(survive) is the binomial PGF (1 - U_fpr/slack)^n_eff, evaluated
+        # exactly; the previous exp(-lambda/slack) was its Poisson
+        # approximation, off by ~0.02 at typical parameters (n ~ 18,
+        # U_fpr ~ 0.25 is outside Poisson territory).
+        effective_honeypots = num_honeypots * np.maximum(
+            1 - (untrusted_honest_fpr + untrusted_honest_fnr), 0.0
+        )
+        p_red_team_passes_honeypots = (
+            1 - U_fpr / slack_honeypots_internal
+        ) ** effective_honeypots
 
         # Probability of there being no attacks
         p_no_attacks = (
@@ -528,8 +597,10 @@ def build_blue_team_win_calculator(
         # 4) Have the first attack pass
 
         p_red_team_fails_honeypots = 1 - p_red_team_passes_honeypots
+        # Upfront-audited attacks are likewise discarded regardless, but only
+        # incriminate at human_audit_success_rate.
         p_red_team_caught_in_upfront_audit = (
-            1 - (1 - red_team_p_attack) ** 10
+            1 - (1 - red_team_p_attack * human_audit_success_rate) ** 10
         ) * p_red_team_passes_honeypots
         p_red_team_introduces_no_attacks = p_no_attacks * (
             1 - p_red_team_fails_honeypots - p_red_team_caught_in_upfront_audit

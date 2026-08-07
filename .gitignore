@@ -29,7 +29,10 @@ results/
 *.png
 
 notebooks/
-experiments/
+# Experiment data trees (symlinks into the local HF-dataset copy) are ignored;
+# experiments/open_models holds tracked code (the config-generator spec).
+/experiments/*
+!/experiments/open_models/
 mlruns/
 cache/
 

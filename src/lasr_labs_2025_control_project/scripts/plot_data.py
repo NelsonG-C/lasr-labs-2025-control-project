@@ -12,9 +12,11 @@ from lasr_labs_2025_control_project.utils.config_loader import (
 )
 from lasr_labs_2025_control_project.utils.numerical_pipeline import (
     OptimizationResult,
+    build_analysis_payload,
     build_optimization_config,
     optimize_parameters,
     plot_data,
+    save_analysis_payload,
 )
 
 logger = logging.getLogger(__name__)
@@ -64,6 +66,16 @@ def main() -> None:
         result = run_single_config(normalized)
         aggregated[normalized.experiment_name] = result
 
+        # Persist the full analysis data (Nash strategies at every sweep
+        # point, empirical ROC curves, joint surface samples) next to the
+        # plots, so figures can be regenerated without re-optimizing.
+        if normalized.results_folder:
+            dest = save_analysis_payload(
+                build_analysis_payload(result, include_history=True),
+                Path(normalized.results_folder) / "analysis_data.json.gz",
+            )
+            logger.info("Analysis data saved to %s", dest)
+
     dest_folder = (
         normalized.results_folder or "src/lasr_labs_2025_control_project/results"
     )
@@ -100,7 +112,10 @@ def build_jsonl_dataframe_from_eval_log(eval_log_path: Path) -> pd.DataFrame:
         - collusion_monitor_user_prompt
     """
     log = read_eval_log(eval_log_path)
-    assert log.samples is not None, "No samples found in the eval log"
+    assert log.samples, (
+        f"No samples in eval log {eval_log_path} (status={log.status!r}) — "
+        "a cancelled/empty run would silently produce a degenerate ROC"
+    )
     final_samples = []
     for sample in log.samples:
         metadata = {**sample.metadata, **sample.store}
