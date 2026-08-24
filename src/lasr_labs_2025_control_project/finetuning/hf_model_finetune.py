@@ -1,4 +1,5 @@
-"""Fine-tuning script used to train gpt-oss-20b and gpt-oss-120b on binary self-recognition task. """
+"""Fine-tuning script used to train gpt-oss-20b and gpt-oss-120b on binary self-recognition task. 
+This was run on a single RTX 6000 Blackwell GPU, and only 4-bit quantization fit. """
 
 import torch, unsloth 
 from transformers import (
@@ -11,7 +12,7 @@ from unsloth import FastLanguageModel
 
 
 model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name="unsloth/gpt-oss-120b-unsloth-bnb-4bit",
+    model_name="unsloth/gpt-oss-120b-unsloth-bnb-4bit", # use unsloth's 4-bit quantization because MXFP4 is still inference-only 
     max_seq_length=2048, 
     dtype=None, 
     load_in_4bit=True, 
