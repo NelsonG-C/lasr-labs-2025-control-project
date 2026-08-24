@@ -41,7 +41,6 @@ from lasr_labs_2025_control_project.scripts.helpers.metadata_dataclasses import 
     ModelInfo,
 )
 from lasr_labs_2025_control_project.settings.setting import AppsSetting
-from lasr_labs_2025_control_project.utils import tinker_provider  # noqa: F401  (registers tinker/ provider)
 from lasr_labs_2025_control_project.utils.config_loader import (
     DatasetType,
     DataSplit,
@@ -51,6 +50,19 @@ from lasr_labs_2025_control_project.utils.config_loader import (
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def _coerce_eval_mode(eval_mode: EvalMode | str) -> EvalMode:
+    """Coerce a task arg back into an EvalMode.
+
+    inspect_ai's eval-retry reconstructs task args from the eval log, where
+    plain (non-str) Enum args get recorded by name (e.g. "HONEST") rather
+    than by value ("honest"), since EvalMode isn't a str subclass. This
+    accepts an EvalMode, its value, or its name (case-insensitive).
+    """
+    if isinstance(eval_mode, EvalMode):
+        return eval_mode
+    return EvalMode(eval_mode.lower())
 
 
 def find_code(completion: str) -> str:
@@ -161,6 +173,8 @@ def backdoored_solutions(
 ) -> Task:
     """Task that runs AppsSetting dataset through attack policy system prompt."""
 
+    eval_mode = _coerce_eval_mode(eval_mode)
+
     # Create AppsSetting instance
     apps_setting = AppsSetting(
         dataset_name="simple",
@@ -168,11 +182,10 @@ def backdoored_solutions(
         num_tests_to_run=10,
         dataset_type="filtered",
         original_dataset_split="test",
-        filter_on_split="even_test" if data_split == DataSplit.TEST else "odd_train",
+        filter_on_split="even_test" if data_split == DataSplit.TEST else "odd_train", 
         shuffle=False,
-        problem_ids_range=[0, 2999],
+        problem_ids=[],
     )
-
     dataset = apps_setting.get_dataset(eval_mode=eval_mode)
 
     return Task(
@@ -290,6 +303,8 @@ def bigcodebench_solutions(
         eval_mode: The evaluation mode to use for the scorer
     """
 
+    eval_mode = _coerce_eval_mode(eval_mode)
+
     # Map DataSplit to bigcodebench data_split (same as APPS mapping)
     bigcodebench_data_split = (
         "even_test" if data_split == DataSplit.TEST else "odd_train"
@@ -360,11 +375,8 @@ def main(
             tasks=task,
             model=run.generator.model_info.model,
             epochs=Epochs(1, ["pass_at_1"]),
-            max_connections=48,
-            max_sandboxes=48,
-            reasoning_tokens=0,
-            reasoning_effort="minimal",  # openai models
-            max_tokens=run.generator.max_tokens,  # None -> provider default
+            max_connections=8,
+            max_sandboxes=8,
             limit=run.limit,
         )
         run.save_path.parent.mkdir(parents=True, exist_ok=True)

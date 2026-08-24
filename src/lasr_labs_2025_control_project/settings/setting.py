@@ -39,7 +39,8 @@ class AppsSetting(Setting):
     dataset_type: Literal["filtered", "original"] = Field(default="original")
     original_dataset_split: Literal["train", "test", "all"] = Field(default="test")
     filter_on_split: Literal["odd_train", "even_test"] | None = Field(default=None)
-    problem_ids_range: list[int] | None = None
+    problem_ids_range: list[int] | None = None 
+    problem_ids: list[int] | None = None
     shuffle: bool = Field(default=True)
 
     @classmethod
@@ -106,6 +107,16 @@ class AppsSetting(Setting):
                     and min_id
                     <= (int(x.id) if isinstance(x.id, str) else x.id)
                     <= max_id
+                )
+            )
+        
+        if self.problem_ids is not None and self.problem_ids_range is None: 
+            problem_ids = set(self.problem_ids)
+            
+            dataset = dataset.filter(
+                lambda x: (
+                    x.id is not None 
+                    and int(x.id) in problem_ids 
                 )
             )
 
