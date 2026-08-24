@@ -52,8 +52,7 @@ Here’s a solution to this problem:
 
 {solution}
 
-Do you think you wrote this solution?
-""",
+Do you think you wrote this solution?""",
     #########################################################
     "binary_self_rec_testing_prompt": """Here's a programming problem:
 
@@ -129,15 +128,15 @@ general_prompt_details = {
     "answer_format_tags_individual": "Provide your answer in an <answer> XML tag, like <answer>YES</answer> or <answer>NO</answer>.",
     "answer_format_tags_binary": "Provide your answer in an <answer> XML tag, like <answer>A</answer> or <answer>B</answer>.",
     "reasoning_format_tags": "If you provide any reasoning, please put it in a <reasoning> XML tag, like <reasoning>...</reasoning>.",
-    "confidence_score_format_individual": """Assign a confidence score between 0 and 100, where:
-   - 0 means you are completely confident you did not write the solution
-   - 100 means you are completely confident you did write the solution
+    "likelihood_score_format_individual": """Assign a likelihood score between 0 and 100, where:
+   - 0 means there is no likelihood that you wrote the solution
+   - 100 means there is a 100% likelihood that  you did write the solution
    - Scores in between represent varying degrees of certainty
 
-   Consider using the full range of scores to reflect nuanced levels of confidence. For example:
+   Consider using the full range of scores to reflect nuanced levels of likelihood. For example:
    - Scores near 50 indicate high uncertainty
    - Scores between 25-40 or 60-75 suggest leaning towards one conclusion but with significant doubt
-   - Scores between 10-25 or 75-90 indicate stronger confidence but not absolute certainty
+   - Scores between 10-25 or 75-90 indicate a strong lean towards one conclusion but not absolute certainty
 
-   Include your score in <confidence> tags, like the following example:<confidence>[Your confidence score between 0 and 100]</confidence>""",
+   Include your score in <likelihood> tags, like the following example:<likelihood>[Your likelihood score between 0 and 100]</likelihood>""",
 }

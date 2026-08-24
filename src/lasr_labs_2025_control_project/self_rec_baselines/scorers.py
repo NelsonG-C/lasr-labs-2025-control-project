@@ -47,7 +47,7 @@ def includes_answer(ignore_case: bool = True, tag: str = "answer"):
 
 
 @scorer(metrics=[mean()])
-def confidence_score(ignore_case: bool = True, tag: str = "answer"):
+def likelihood_score(ignore_case: bool = True, tag: str = "answer"):
     async def score(state: TaskState, target: Target):
         # check for correct
         output = state.output.completion

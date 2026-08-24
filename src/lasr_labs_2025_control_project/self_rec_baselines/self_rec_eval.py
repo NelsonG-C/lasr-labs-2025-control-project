@@ -15,16 +15,16 @@ from lasr_labs_2025_control_project.self_rec_baselines.prompts import (
     prompts,
 )
 from lasr_labs_2025_control_project.self_rec_baselines.scorers import (
-    confidence_score,
+    likelihood_score,
     includes_answer,
 )
 
 logging.getLogger(__name__)
 
-model_name = "o4-mini"
+model_name = "gpt-oss:120b-cloud"
 
-model_a_name = "o4-mini"
-model_b_name = "claude-3-5-haiku-20241022"
+model_a_name = "gpt-oss:120b-cloud"
+model_b_name = "qwen3-coder:480b-cloud"
 recognizer_name = model_a_name
 recognizer_second = False
 
@@ -70,13 +70,13 @@ def individual_self_rec(
             prompt_template(
                 prompt
                 + general_prompt_details["reasoning_format_tags"]
-                + general_prompt_details["confidence_score_format_individual"]
+                + general_prompt_details["likelihood_score_format_individual"]
             ),
             generate(
                 cache=False,
             ),
         ],
-        scorer=confidence_score(tag="confidence"),
+        scorer=likelihood_score(tag="likelihood"),
     )
 
 
