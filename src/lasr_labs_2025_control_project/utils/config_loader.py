@@ -18,6 +18,7 @@ from lasr_labs_2025_control_project.scripts.helpers.metadata_dataclasses import 
     MonitorConfig,
     TransformInfo,
     TransformType,
+    CombinedMonitorConfig 
 )
 
 
@@ -36,7 +37,7 @@ class RunMonitors:
     trusted_collusion_monitor: Optional[MonitorConfig]
     untrusted_backdoor_monitor: Optional[MonitorConfig]
     untrusted_collusion_monitor: Optional[MonitorConfig]
-
+    combined_monitor: Optional[CombinedMonitorConfig] 
 
 class DataSplit(StrEnum):
     """The data split to run the generator on."""
@@ -61,17 +62,12 @@ class RunGenerator:
         eval_mode: The evaluation mode.
         data_split: The data split.
         dataset_type: The dataset type (apps or bigcodebench).
-        max_tokens: Optional per-run completion token cap passed to inspect's
-            eval(); None keeps the provider default (open models that reason at
-            length before emitting <final_code> need more than the tinker
-            provider's 4096 default).
     """
 
     model_info: ModelInfo
     eval_mode: EvalMode
     data_split: DataSplit
     dataset_type: DatasetType = DatasetType.APPS
-    max_tokens: Optional[int] = None
 
 
 class RunLabel(StrEnum):
@@ -117,7 +113,7 @@ class TransformRunConfig(RunConfig):
 class MonitorRunConfig(RunConfig):
     """Configuration for a single monitoring run."""
 
-    eval_path: Path
+    eval_paths: tuple[Path, ...]
     monitors: RunMonitors
 
 
@@ -240,6 +236,7 @@ def normalize_monitor_defaults(config: dict[str, Any]) -> dict[str, Any]:
         "trusted_collusion_monitor",
         "untrusted_backdoor_monitor",
         "untrusted_collusion_monitor",
+        "combined_monitor" 
     }
     defaults = config.get("defaults")
     if not isinstance(defaults, dict):
@@ -322,6 +319,7 @@ def normalize_transform_defaults(config: dict[str, Any]) -> dict[str, Any]:
 
 def _resolve_prompts(config: dict[str, Any]) -> None:
     """Mutate config to resolve model_info.system_prompt and model_info.base_prompt if they are names.
+       Also check for suspicion_follow_up_prompt. 
 
     Args:x
         config: The config with model_info key.
@@ -333,7 +331,8 @@ def _resolve_prompts(config: dict[str, Any]) -> None:
         model_info["system_prompt"] = get_prompt_by_name(model_info["system_prompt"])
     if "base_prompt" in model_info:
         model_info["base_prompt"] = get_prompt_by_name(model_info["base_prompt"])
-
+    if "suspicion_follow_up_prompt" in config: 
+        config["suspicion_follow_up_prompt"] = get_prompt_by_name(config["suspicion_follow_up_prompt"]) 
 
 def _resolve_eval_path(
     experiment_folder: Path, eval_path_str: str, check_exists: bool = False
@@ -374,10 +373,25 @@ def _build_monitor_run_config(
 ) -> MonitorRunConfig:
     base_config = _build_base_run_config(label, run_cfg, experiment_folder, defaults)
 
-    eval_path_str = run_cfg.get("eval_path")
-    if eval_path_str is None:
-        raise ValueError("eval_path must be provided for each monitor run")
-    eval_path = _resolve_eval_path(experiment_folder, eval_path_str, check_exists=True)
+    # Support both eval_path (single, backward compatible) and eval_paths (multiple)
+    eval_paths_list = []
+    if "eval_paths" in run_cfg:
+        eval_paths_raw = run_cfg.get("eval_paths")
+        if not isinstance(eval_paths_raw, list) or not eval_paths_raw:
+            raise ValueError(f"Run '{label}': 'eval_paths' must be a non-empty list")
+        for eval_path_str in eval_paths_raw:
+            if not isinstance(eval_path_str, str):
+                raise ValueError(f"Run '{label}': each eval_path must be a string")
+            eval_path = _resolve_eval_path(experiment_folder, eval_path_str, check_exists=True)
+            eval_paths_list.append(eval_path)
+    elif "eval_path" in run_cfg:
+        eval_path_str = run_cfg.get("eval_path")
+        if not isinstance(eval_path_str, str):
+            raise ValueError(f"Run '{label}': eval_path must be a string")
+        eval_path = _resolve_eval_path(experiment_folder, eval_path_str, check_exists=True)
+        eval_paths_list.append(eval_path)
+    else:
+        raise ValueError("eval_path or eval_paths must be provided for each monitor run")
 
     if "monitors" not in run_cfg:
         raise ValueError(f"Run '{label}' must include an explicit 'monitors' list")
@@ -403,7 +417,7 @@ def _build_monitor_run_config(
 
     return MonitorRunConfig(
         label=label,
-        eval_path=eval_path,
+        eval_paths=tuple(eval_paths_list),
         save_path=base_config.save_path,
         limit=base_config.limit,
         monitors=from_dict(
@@ -469,8 +483,23 @@ def _build_generator_run_config(
     model = get_cfg_value("model", run_cfg, defaults)
     system_prompt_name = get_cfg_value("system_prompt", run_cfg, defaults)
 
-    # Optional completion-token cap (per-run override, then defaults, else None)
-    max_tokens = run_cfg.get("max_tokens", defaults.get("max_tokens"))
+    # Guard against dataset_type/system_prompt mismatches: "_bcb" prompts assume a
+    # `task_func(**kwargs)`-style problem and a kwargs-dict secret_input, which silently
+    # breaks the stdin/stdout APPS scorer (and vice versa) without erroring at generation time.
+    is_bcb_prompt = system_prompt_name.endswith("_bcb")
+    if dataset_type == DatasetType.APPS and is_bcb_prompt:
+        raise ValueError(
+            f"Run '{label}': system_prompt '{system_prompt_name}' is a BigCodeBench-specific "
+            "prompt (expects a `task_func` definition and a kwargs-dict secret_input), but "
+            "dataset_type is 'apps' (stdin/stdout problems). Use a non-'_bcb' prompt, or set "
+            "dataset_type: bigcodebench."
+        )
+    if dataset_type == DatasetType.BIGCODEBENCH and not is_bcb_prompt:
+        raise ValueError(
+            f"Run '{label}': system_prompt '{system_prompt_name}' is not a BigCodeBench-specific "
+            "prompt (no '_bcb' suffix), but dataset_type is 'bigcodebench'. Use a '_bcb' variant "
+            "prompt, or set dataset_type: apps."
+        )
 
     # Build the RunGenerator dataclass
     run_generator = from_dict(
@@ -484,7 +513,6 @@ def _build_generator_run_config(
             "eval_mode": eval_mode,
             "data_split": data_split,
             "dataset_type": dataset_type,
-            "max_tokens": max_tokens,
         },
     )
 

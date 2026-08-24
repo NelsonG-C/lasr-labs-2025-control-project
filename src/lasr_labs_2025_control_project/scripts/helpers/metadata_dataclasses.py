@@ -111,3 +111,11 @@ class MonitorConfig:
     model_info: ModelInfo
     transformed: bool
     remove_comments: bool = False
+    suspicion_follow_up_prompt: Optional[str] = None
+
+@dataclass 
+class CombinedMonitorConfig: 
+    model_info: ModelInfo 
+    transformed: bool 
+    remove_comments: bool = False 
+    suspicion_follow_up_prompt: Optional[str] = None  
